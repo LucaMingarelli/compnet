@@ -1,8 +1,9 @@
-"""  Created on 10/10/2022::
-------------- algo.py -------------
+"""  Created on 11/10/2022::
+------------- algo_old.py -------------
 
 **Authors**: L. Mingarelli
 """
+
 
 import numpy as np, pandas as pd
 from compnet.__res.sample.sample0 import (sample0, sample_bilateral, sample_noncons1,
@@ -80,34 +81,6 @@ def compressed_network_conservative(df):
     ...
 
 
-@numba.njit(fastmath=True)
-def _noncons_compr_max_min(ordered_flows, max_links):
-    EL = np.zeros(max_links)
-    pairs = np.zeros((max_links, 2), dtype=np.uint32)
-    i,j,n = 0,0,0
-    while len(ordered_flows):
-        v = min(ordered_flows[0], -ordered_flows[-1])
-        err = ordered_flows[0] + ordered_flows[-1]
-        EL[n] = v
-        pairs[n, 0] = j
-        pairs[n, 1] = i
-        n += 1
-        if err>0:
-            ordered_flows = ordered_flows[:-1]
-            ordered_flows[0] = err
-            j += 1
-        elif err<0:
-            ordered_flows = ordered_flows[1:]
-            ordered_flows[-1] = err
-            i += 1
-        else:
-            ordered_flows = ordered_flows[1:-1]
-            i += 1
-            j += 1
-
-    return EL, pairs
-
-
 # For now assuming applied on fully connected subset
 def compressed_network_non_conservative(df=sample_noncons4):
     """
@@ -119,61 +92,78 @@ def compressed_network_non_conservative(df=sample_noncons4):
     Returns:
 
     """
+
     nodes_flow = _get_nodes_net_flow(df)
 
     nodes = np.array(nodes_flow.index)
     flows = nodes_flow.values
-
     idx = flows[flows != 0].argsort()[::-1]
-
     ordered_flows = flows[flows != 0][idx]
     nodes = nodes[flows != 0][idx]
     nodes_r = nodes[::-1]
 
     from copy import copy
+    def __noncons_compr(nodes, nodes_r, ordered_flows):
+        EL, pairs = [], []
+        i,j = 0,0
+        while len(ordered_flows):
+            v = min(ordered_flows[0], -ordered_flows[-1])
+            err = ordered_flows[0] + ordered_flows[-1]
+            EL.append(v)
+            pairs.append((nodes_r[j], nodes[i]))
+            if err>0:
+                ordered_flows = ordered_flows[:-1]
+                ordered_flows[0] = err
+                j += 1
+            elif err<0:
+                ordered_flows = ordered_flows[1:]
+                ordered_flows[-1] = err
+                i += 1
+            else:
+                ordered_flows = ordered_flows[1:-1]
+                i += 1
+                j += 1
 
-    EL, pairs = _noncons_compr_max_min(ordered_flows=copy(ordered_flows),
-                                       max_links=len(nodes) # TODO - prove the following Theorem: for any compressed graph G=(N, E) one has |E|<=|N| (number of edges is at most the number of nodes)
-                                       )
+        return EL, pairs
 
-    fltr = EL!=0
-    EL, pairs = EL[fltr], pairs[fltr, :]
-    pairs = [*zip(nodes_r.reshape(1,-1)[:, pairs[:, 0]][0],
-                    nodes.reshape(1,-1)[:, pairs[:, 1]][0])]
+    EL, pairs = __noncons_compr(nodes=nodes, nodes_r=nodes_r, ordered_flows=copy(ordered_flows))
+
+    # TODO: TO BE MOVED OUTSIDE!
+    @numba.njit(fastmath=True)
+    def _noncons_compr(ordered_flows, max_links):
+        EL = np.zeros(max_links+1)
+        pairs = -99*np.ones((max_links+1, 2), dtype=np.int32)
+        i,j,n = 0,0,0
+        while len(ordered_flows):
+            v = min(ordered_flows[0], -ordered_flows[-1])
+            err = ordered_flows[0] + ordered_flows[-1]
+            EL[n] = v
+            pairs[n, 0] = j
+            pairs[n, 1] = i
+            n += 1
+            if err>0:
+                ordered_flows = ordered_flows[:-1]
+                ordered_flows[0] = err
+                j += 1
+            elif err<0:
+                ordered_flows = ordered_flows[1:]
+                ordered_flows[-1] = err
+                i += 1
+            else:
+                ordered_flows = ordered_flows[1:-1]
+                i += 1
+                j += 1
+
+        return EL, pairs
+
+    EL, pairs = _noncons_compr(ordered_flows=copy(ordered_flows), max_links=len(nodes))
+    n_empty = (pairs[:,0]==-99).sum()
+    EL = EL[:-n_empty]
+    pairs = [*zip(nodes_r.reshape(1,-1)[:, pairs[:-n_empty,0]][0],
+                    nodes.reshape(1,-1)[:, pairs[:-n_empty,1]][0])]
 
     fx = pd.DataFrame.from_records(pairs,columns=['SOURCE', 'DESTINATION'])
     fx['AMOUNT'] = EL
     return fx
 
 
-
-
-
-
-# For now assuming applied on fully connected subset
-def non_conservative_compression_ED(df=sample_noncons4):
-    nodes_flow = _get_nodes_net_flow(df)
-
-    flows = nodes_flow.values
-    nodes = np.array(nodes_flow.index)[flows != 0]
-
-    pos_flws = flows[flows > 0]
-    neg_flws = -flows[flows < 0]
-    pos_nds = nodes[flows > 0]
-    neg_nds = nodes[flows < 0]
-
-    # Total positive flow
-    T_flow = pos_flws.sum()
-
-    cmprsd_flws = neg_flws.reshape(-1,1) * pos_flws / T_flow
-    cmprsd_edgs = neg_nds.reshape(-1, 1) + (__SEP + pos_nds)
-
-    fx = pd.DataFrame.from_records(pd.Series(cmprsd_edgs.flatten()).str.split(__SEP),
-                                   columns=['SOURCE', 'DESTINATION'])
-    fx['AMOUNT'] = cmprsd_flws.flatten()
-    return fx
-
-
-charct_net(sample_noncons4)
-charct_net(compressed_network_non_conservative(df=sample_noncons4))
-charct_net(non_conservative_compression_ED(df=sample_noncons4))

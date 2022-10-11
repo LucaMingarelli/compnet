@@ -45,8 +45,8 @@ sample_noncons2_compressed = pd.DataFrame(
      ],
     columns=['SOURCE', 'DESTINATION' ,'AMOUNT'])
 
-_get_nodes_net_flow(sample_noncons2)
-_get_nodes_net_flow(compressed_network_non_conservative(sample_noncons2))
+# _get_nodes_net_flow(sample_noncons2)
+# _get_nodes_net_flow(compressed_network_non_conservative(sample_noncons2))
 
 sample_noncons3 = pd.DataFrame(
     [['A','B', 5],
@@ -66,13 +66,13 @@ sample_noncons4 = pd.DataFrame(
      ],
     columns=['SOURCE', 'DESTINATION' ,'AMOUNT'])
 
-compressed_network_non_conservative(sample_noncons4)
-_get_nodes_net_flow(sample_noncons4)
-_get_nodes_net_flow(sample_noncons4_compressed)
+# compressed_network_non_conservative(sample_noncons4)
+# _get_nodes_net_flow(sample_noncons4)
+# _get_nodes_net_flow(sample_noncons4_compressed)
 
 # THESE TWO BELOW ARE EQUIVALENTLY COMPRESSED
 # TODO RESEARCH: Find all possible compressions -> which compression strategy does it minimise systemic risk?
-_get_nodes_net_flow(compressed_network_non_conservative(sample_noncons4))
+# _get_nodes_net_flow(compressed_network_non_conservative(sample_noncons4))
 sample_noncons4_compressed = pd.DataFrame(
     [['A','B', 1],
      ['A','D', 3],
@@ -81,7 +81,7 @@ sample_noncons4_compressed = pd.DataFrame(
     columns=['SOURCE', 'DESTINATION' ,'AMOUNT'])
 
 
-compressed_network_non_conservative(df=sample_noncons2)
+# compressed_network_non_conservative(df=sample_noncons2)
 
 
 

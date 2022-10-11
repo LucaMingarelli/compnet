@@ -1,4 +1,4 @@
-# ![](compnet/__res/_ICON.png) *compnet* — Compression for Market Networks data 
+# ![](compnet/__res/icons/Network_Compression.png) *compnet* — Compression for Market Networks data 
 
 [![version](https://img.shields.io/badge/version-0.0.1-success.svg)](#)
 
