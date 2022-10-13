@@ -48,7 +48,7 @@ def _noncons_compr_max_min(ordered_flows, max_links):
 
     return EL, pairs
 
-def compression_factor(df1, df2, p=2, _max_comp_p=15):
+def compression_factor(df1, df2, p=2, _max_comp_p=15, t=False):
     r"""Returns compression factor of df2 with respect to df1.
 
     The compression factor CF for two networks with N nodes and weighted adjacency matrix C_1 and C_2 is defined as
@@ -80,16 +80,12 @@ def compression_factor(df1, df2, p=2, _max_comp_p=15):
     Returns:
         Compression factor
     """
-    src_dst = ['SOURCE', 'DESTINATION']
 
     if p<=_max_comp_p:
-        nds1, nds2 = ({k:v for v,k in enumerate(set(df1[src_dst].values.flatten()))},
-                      {k:v for v,k in enumerate(set(df2[src_dst].values.flatten()))})
-        N1, N2 = len(nds1), len(nds2)
-
-        Lp1 = (2 / (N1*(N1-1)) * df1.replace(nds1).groupby('SOURCE').apply(lambda g: (g.AMOUNT.abs()[g.DESTINATION > g.SOURCE]**p).sum()).sum()) ** (1/p)
-        Lp2 = (2 / (N2*(N2-1)) * df2.replace(nds2).groupby('SOURCE').apply(lambda g: (g.AMOUNT.abs()[g.DESTINATION > g.SOURCE]**p).sum()).sum()) ** (1/p)
-        CR = 2 / (N2*(N2-1)) * (Lp2 / Lp1)
+        N = len(set(df1[['SOURCE', 'DESTINATION']].values.flatten()))
+        Lp1 = (2 / (N*(N-1)) * (df1.AMOUNT.abs()**p).sum()) ** (1/p)
+        Lp2 = (2 / (N*(N-1)) * (df2.AMOUNT.abs()**p).sum()) ** (1/p)
+        CR = 2 / (N*(N-1)) * (Lp2 / Lp1)
     else:  # If p>_max_comp_p (p>15 by default) returns the limit p=∞
         CR = market_desc(df2)['EMS'] / market_desc(df1)['EMS']
 
@@ -202,6 +198,7 @@ class CompNet:
 
         flows = nodes_flow.values
         nodes = np.array(nodes_flow.index)[flows != 0]
+        flows = flows[flows != 0]
 
         pos_flws = flows[flows > 0]
         neg_flws = -flows[flows < 0]

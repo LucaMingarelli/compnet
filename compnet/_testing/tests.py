@@ -55,7 +55,7 @@ class TestCompression:
         plt.show()
         assert (np.array(cfs)>=cfs[-1]).all()
 
-        ps = np.array(list(np.linspace(0.5, 20, 200)))
+        ps = np.array(list(np.linspace(1, 20, 200))+[50])
         compressed1 = CompNet(sample_noncons4).compress(type='nc-ed')
         compressed2 = CompNet(sample_noncons4).compress(type='nc-max')
         cfs1 = [compression_factor(sample_noncons4, compressed1, p=p, _max_comp_p=200)
@@ -64,18 +64,43 @@ class TestCompression:
                 for p in ps]
 
         plt.axhline(cfs1[-1], color='k')
-        plt.axhline(cfs2[-1], color='gray', linestyle='--')
-        plt.plot(ps, cfs1, color='blue')
-        plt.plot(ps, cfs2, color='red')
-        # plt.xlim(0, 16)
+        plt.axhline(cfs2[-1], color='k')
+        plt.plot(ps, cfs1, color='blue', label='Non-conservative ED')
+        plt.plot(ps, cfs2, color='red', label='Non-conservative MAX')
+        plt.legend()
+        plt.xlim(1, 20)
         plt.show()
 
 
+import numpy as np, pandas as pd, pylab as plt
 
+def test_compression_factor(df, plot=True):
+    ps = np.array(list(np.linspace(1, 20, 200))+[50])
+    compressed1 = CompNet(df).compress(type='nc-ed')
+    compressed2 = CompNet(df).compress(type='nc-max')
+    cfs1 = [compression_factor(df, compressed1, p=p, _max_comp_p=200)
+            for p in ps]
+    cfs2 = [compression_factor(df, compressed2, p=p, _max_comp_p=200)
+            for p in ps]
+    if plot:
+        plt.axhline(cfs1[-1], color='k')
+        plt.axhline(cfs2[-1], color='k')
+        plt.plot(ps, cfs1, color='blue', label='Non-conservative ED')
+        plt.plot(ps, cfs2, color='red', label='Non-conservative MAX')
+        plt.legend()
+        plt.xlim(1, 20)
+        plt.show()
+    return np.array(cfs1), np.array(cfs2)
 
-
-
-
+for _ in range(1000):
+    df = pd.DataFrame({'SOURCE':     ['A', 'A', 'A', 'B', 'B', 'C'],
+                       'DESTINATION':['B', 'B', 'B', 'C', 'D', 'D'],
+                       'AMOUNT': np.random.randint(-100, 100, 6)})
+    cfs1, cfs2 = test_compression_factor(df, plot=False)
+    if (cfs1<cfs2).any():
+        if (~np.isclose(cfs1[cfs1<cfs2], cfs2[cfs1<cfs2])).any():
+            test_compression_factor(df, plot=True)
+            raise Exception("You were wrong twat!")
 
 
 
