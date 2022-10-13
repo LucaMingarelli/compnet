@@ -75,9 +75,9 @@ class TestCompression:
 import numpy as np, pandas as pd, pylab as plt
 
 def test_compression_factor(df, plot=True):
-    ps = np.array(list(np.linspace(1, 20, 200))+[50])
-    compressed1 = CompNet(df).compress(type='nc-ed')
-    compressed2 = CompNet(df).compress(type='nc-max')
+    ps = np.array(list(np.linspace(1, 20, 191))+[50])
+    compressed1 = CompNet(df).compress(type='nc-ed', verbose=False)
+    compressed2 = CompNet(df).compress(type='nc-max', verbose=False)
     cfs1 = [compression_factor(df, compressed1, p=p, _max_comp_p=200)
             for p in ps]
     cfs2 = [compression_factor(df, compressed2, p=p, _max_comp_p=200)
@@ -90,17 +90,43 @@ def test_compression_factor(df, plot=True):
         plt.legend()
         plt.xlim(1, 20)
         plt.show()
-    return np.array(cfs1), np.array(cfs2)
+    return np.array(cfs1), np.array(cfs2),
 
-for _ in range(1000):
+IMPROVED_COMPR = []
+for _ in range(500):
     df = pd.DataFrame({'SOURCE':     ['A', 'A', 'A', 'B', 'B', 'C'],
-                       'DESTINATION':['B', 'B', 'B', 'C', 'D', 'D'],
-                       'AMOUNT': np.random.randint(-100, 100, 6)})
+                       'DESTINATION':['B', 'C', 'D', 'C', 'D', 'D'],
+                       # 'AMOUNT': np.random.randint(-100, 100, 6)}
+                       'AMOUNT': np.random.randn(6) * 100}
+                      )
     cfs1, cfs2 = test_compression_factor(df, plot=False)
+    IMPROVED_COMPR.append(cfs1[10]-cfs2[10])
     if (cfs1<cfs2).any():
         if (~np.isclose(cfs1[cfs1<cfs2], cfs2[cfs1<cfs2])).any():
             test_compression_factor(df, plot=True)
             raise Exception("You were wrong twat!")
 
+
+plt.hist(IMPROVED_COMPR, bins=100)
+plt.yscale('log')
+plt.show()
+
+
+########################
+### FIND CLOSED CHAINS
+########################
+import networkx as nx
+from compnet._testing.sample import (sample_cycle, sample_nested_cycle1, sample_nested_cycle2,
+                                     sample_nested_cycle3, sample_nested_cycle4, sample_entangled)
+
+# G = nx.DiGraph([(0, 1), (0, 2), (1, 2)])
+# nx.find_cycle(G, orientation="original")
+# list(nx.find_cycle(G, orientation="ignore"))
+
+df = f = sample_entangled
+G = nx.DiGraph(list(f.iloc[:,:2].values))
+# G.edges
+# list(nx.find_cycle(G, orientation="original"))
+list(nx.simple_cycles(G))
 
 

@@ -86,6 +86,75 @@ sample_noncons4_compressed = pd.DataFrame(
 
 
 
+sample_cycle = pd.DataFrame(
+    [['A','B', 1],
+     ['A','C', 3],
+     ['C','D', 2],
+     ['D','A', 2],
+     ],
+    columns=['SOURCE', 'DESTINATION' ,'AMOUNT'])
+
+sample_nested_cycle1 = pd.DataFrame(
+    [['A','B', 1],
+     ['B','C', 3],
+     ['C','D', 2],
+     ['D','A', 2],
+     ['C','A', 4],
+     ],
+    columns=['SOURCE', 'DESTINATION' ,'AMOUNT'])
+
+sample_nested_cycle2 = pd.DataFrame(
+    [['A','B', 1],
+     ['B','C', 3],
+     ['B','D', 2],
+     ['D','A', 2],
+     ['C','A', 4],
+     ],
+    columns=['SOURCE', 'DESTINATION' ,'AMOUNT'])
+
+sample_nested_cycle3 = pd.DataFrame(
+    [['A','B', 2],
+     ['B','C', 3],
+     ['C','A', 2],
+     ['D','A', 2],
+     ['B','E', 4],
+     ['E','D', 4],
+     ],
+    columns=['SOURCE', 'DESTINATION' ,'AMOUNT'])
+
+sample_nested_cycle4 = pd.DataFrame(
+    [['A','B', 1],
+     ['B','F', 3],
+     ['F','G', 2],
+     ['G','E', 2],
+     ['E','F', 4],
+     ['G','C', 2],
+     ['C','D', 1],
+     ['D','A', 3],
+     ],
+    columns=['SOURCE', 'DESTINATION' ,'AMOUNT'])
+
+sample_entangled = pd.DataFrame(
+    [['A','B', 5],
+     ['B','C', 10],
+     ['C','A', 20],
+     ['C','D', 10],
+     ['D','B', 3],
+     ],
+    columns=['SOURCE', 'DESTINATION' ,'AMOUNT'])
+
+sample_derrico = pd.DataFrame(
+    [['A','B', 5],
+     ['B','C', 10],
+     ['C','A', 20],
+     ],
+    columns=['SOURCE', 'DESTINATION' ,'AMOUNT'])
+
+### Compare page 64 here: https://www.esrb.europa.eu/pub/pdf/wp/esrbwp44.en.pdf
+from compnet.algo import CompNet, compression_factor, market_desc
+CompNet(sample_derrico).compress(type='c')
+CompNet(sample_derrico).compress(type='nc-max')
+CompNet(sample_derrico).compress(type='nc-ed')
 
 
 

@@ -5,8 +5,9 @@
 """
 
 import numpy as np, pandas as pd
-import numba
+import numba, networkx as nx
 from tabulate import tabulate
+from functools import lru_cache
 __SEP = '__<>__<>__'
 
 def _get_nodes_net_flow(df):
@@ -158,6 +159,34 @@ class CompNet:
                        axis=1).drop(columns='index')
         return self._flip_neg_amnts(rf)
 
+    def __conservative_compression(self, df):
+        edgs = df.set_index(df.SOURCE + self.__SEP + df.DESTINATION)[['AMOUNT']].T
+        @lru_cache()
+        def loop2edg(tpl):
+            return list(f'{x}{self.__SEP}{y}' for x, y in zip((tpl[-1],) + tpl[:-1], tpl))
+        @lru_cache()
+        def get_minedg(cycle):
+            return edgs[loop2edg(cycle)].T.min().AMOUNT
+
+        G = nx.DiGraph(list(df.iloc[:, :2].values))
+        cycles = [tuple(c) for c in nx.simple_cycles(G)]
+        cycles_len_minedg = [len(c)*get_minedg(c) for c in cycles]
+        while cycles:
+            idx = np.argmax(cycles_len_minedg)
+            cycle = cycles[idx]
+            cls = loop2edg(cycle)
+            if pd.Series(cls).isin(edgs.columns).all():
+                edgs[cls] -= get_minedg(cycle)
+                edgs.drop(columns=[edgs[cls].columns[idx]], inplace=True)
+            cycles.pop(idx)
+            cycles_len_minedg.pop(idx)
+        edgs = edgs.T.reset_index()
+        amnt = edgs.AMOUNT
+        edgs = pd.DataFrame(edgs['index'].str.split(self.__SEP).to_list(),
+                            columns=['SOURCE', 'DESTINATION'])
+        edgs['AMOUNT'] = amnt
+        return edgs
+
     def __non_conservative_compression_MAX(self, df):
         """
         TODO: IN DOCS ADD https://github.com/sktime/sktime/issues/764
@@ -234,7 +263,7 @@ class CompNet:
         elif type.lower() == 'nc-max':
             compressed = self.__non_conservative_compression_MAX(df=df)
         elif type.lower() == 'c':
-            ...
+            compressed = self.__conservative_compression(df=df)
         elif type.lower() == 'bilateral':
             compressed = self.__bilateral_compression(df=df)
         else:
