@@ -56,7 +56,7 @@ def _noncons_compr_max_min(ordered_flows, max_links):
 
     return EL, pairs
 
-def compression_factor(df1, df2, p=2, _max_comp_p=15, t=False):
+def compression_factor(df1, df2, p=2, t=False):
     r"""Returns compression factor of df2 with respect to df1.
 
     The compression factor CF for two networks with N nodes and weighted adjacency matrix C_1 and C_2 is defined as
@@ -83,19 +83,19 @@ def compression_factor(df1, df2, p=2, _max_comp_p=15, t=False):
     Args:
         df1 (pd.DataFrame): Edge list of original network
         df2 (pd.DataFrame): Edge list of compressed network
-        p: order of the norm (default is p=2). When p>_max_comp_p the limit p=∞ is automatically returned
+        p: order of the norm (default is p=2). If p='ems_ratio' the ratio of EMS is provided. This corresponds in some cases to the limit p=∞.
 
     Returns:
         Compression factor
     """
 
-    if p<=_max_comp_p:
+    if str(p).lower()=='ems_ratio':  # In some cases this corresponds to the limit p=∞
+        CR = _market_desc(df2)['EMS'] / _market_desc(df1)['EMS']
+    else:
         N = len(set(df1[['SOURCE', 'DESTINATION']].values.flatten()))
         Lp1 = (2 / (N*(N-1)) * (df1.AMOUNT.abs()**p).sum()) ** (1/p)
         Lp2 = (2 / (N*(N-1)) * (df2.AMOUNT.abs()**p).sum()) ** (1/p)
         CR = 2 / (N*(N-1)) * (Lp2 / Lp1)
-    else:  # If p>_max_comp_p (p>15 by default) returns the limit p=∞
-        CR = _market_desc(df2)['EMS'] / _market_desc(df1)['EMS']
 
     CF = 1 - CR
     return CF
@@ -242,8 +242,18 @@ class Graph:
         fx['AMOUNT'] = cmprsd_flws.flatten()
         return fx
 
+    def __check_compression(self, df, df_compressed):
+        GMS, CMS, EMS = _market_desc(df).values()
+        GMS_comp, CMS_comp, EMS_comp = _market_desc(df_compressed).values()
+        flows = _get_nodes_net_flow(df)
+        flows_comp = _get_nodes_net_flow(df_compressed)
+        assert EMS>=EMS_comp, f"Compression check failed on EMS. \n\n   Original EMS = {EMS} \n Compressed EMS = {EMS_comp}"
+        assert (flows==flows_comp).all(), f"Compression check failed on FLOWS. \n\n  Original flows = {flows.to_dict()} \nCompressed flows = {flows_comp.to_dict()}"
+        assert CMS==CMS_comp, f"Compression check failed on CMS. \n\n   Original CMS = {CMS} \n Compressed CMS = {CMS_comp}"
+
+
     def compress(self, type='bilateral', conn_sub=False,
-                 compression_p=2, verbose=True, _max_comp_p=15):
+                 compression_p=2, verbose=True, __check_compr=True):
         """
         Returns compressed network.
         Args:
@@ -265,9 +275,10 @@ class Graph:
             compressed = self.__bilateral_compression(df=df)
         else:
             raise Exception(f'Type {type} not recognised: please input either of NC-ED, NC-MAX, C, or bilateral.')
-
+        if __check_compr:
+            self.__check_compression(df=df, df_compressed=compressed)
         if verbose:
-            comp_rt = compression_factor(df1=df, df2=compressed, p=compression_p, _max_comp_p=_max_comp_p)
+            comp_rt = compression_factor(df1=df, df2=compressed, p=compression_p)
             print(f"Compression Factor  CF(p={compression_p}) = {comp_rt}")
         return compressed
 

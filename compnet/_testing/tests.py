@@ -80,16 +80,18 @@ def test_compression_factor(df, plot=True):
     compressed1 = cn.Graph(df).compress(type='nc-ed', verbose=False)
     compressed2 = cn.Graph(df).compress(type='nc-max', verbose=False)
     compressed3 = cn.Graph(df).compress(type='c', verbose=False)
-    cfs1 = [cn.compression_factor(df, compressed1, p=p, _max_comp_p=200)
+    cfs1 = [cn.compression_factor(df, compressed1, p=p)
             for p in ps]
-    cfs2 = [cn.compression_factor(df, compressed2, p=p, _max_comp_p=200)
+    cfs2 = [cn.compression_factor(df, compressed2, p=p)
             for p in ps]
-    cfs3 = [cn.compression_factor(df, compressed3, p=p, _max_comp_p=200)
+    cfs3 = [cn.compression_factor(df, compressed3, p=p)
             for p in ps]
+    cf_ems = cn.compression_factor(df, compressed3, p='ems_ratio')
     if plot:
         plt.axhline(cfs1[-1], color='k')
         plt.axhline(cfs2[-1], color='k')
         plt.axhline(cfs3[-1], color='k')
+        plt.axhline(cf_ems, color='purple', label='EMS compression factor')
         plt.plot(ps, cfs1, color='blue', label='Non-conservative ED')
         plt.plot(ps, cfs2, color='red', label='Non-conservative MAX')
         plt.plot(ps, cfs3, color='green', label='Conservative')
