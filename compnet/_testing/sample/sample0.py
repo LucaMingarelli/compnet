@@ -150,9 +150,9 @@ sample_derrico = pd.DataFrame([['Node A','Node B', 5],
      ['Node B','Node C', 10],
      ['Node C','Node A', 20],
      ],columns=['SOURCE', 'DESTINATION' ,'AMOUNT'])
-from compnet.algo import CompNet, compression_factor, _market_desc
-c_comp = CompNet(sample_derrico).compress(type='c')
-ncmax_comp = CompNet(sample_derrico).compress(type='nc-max')
-nced__comp = CompNet(sample_derrico).compress(type='nc-ed')
+from compnet.algo import Graph, compression_factor, _market_desc
+c_comp = Graph(sample_derrico).compress(type='c')
+ncmax_comp = Graph(sample_derrico).compress(type='nc-max')
+nced__comp = Graph(sample_derrico).compress(type='nc-ed')
 
 

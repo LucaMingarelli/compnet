@@ -5,7 +5,7 @@
 """
 
 import numpy as np, pandas as pd, pylab as plt, networkx as nx
-from compnet.algo import CompNet, compression_factor
+import compnet as cn
 from compnet._testing.sample import (sample0, sample_bilateral,
                                      sample_noncons2, sample_noncons4)
 
@@ -13,33 +13,33 @@ class TestCompression:
 
     def test_describe(self):
 
-        CompNet(sample_bilateral).describe()
-        assert (CompNet(sample_bilateral).describe(ret=True) == [30, 15, 15]).all()
+        cn.Graph(sample_bilateral).describe()
+        assert (cn.Graph(sample_bilateral).describe(ret=True) == [30, 15, 15]).all()
 
     def test_compress_bilateral(self):
-        net = CompNet(sample_bilateral)
+        net = cn.Graph(sample_bilateral)
         bil_compr = net.compress(type='bilateral')
 
         assert (bil_compr.AMOUNT == [5, 15]).all()
-        assert (CompNet(bil_compr).net_flow == CompNet(sample_bilateral).net_flow).all()
+        assert (cn.Graph(bil_compr).net_flow == cn.Graph(sample_bilateral).net_flow).all()
 
-        assert (CompNet(sample_noncons2).compress(type='bilateral').AMOUNT == [10, 5, 20]).all()
+        assert (cn.Graph(sample_noncons2).compress(type='bilateral').AMOUNT == [10, 5, 20]).all()
 
     def test_compress_NC_ED(self):
-        dsc = CompNet(sample_noncons4).describe(ret=True)
-        ncedc = CompNet(sample_noncons4).compress(type='NC-ED')
+        dsc = cn.Graph(sample_noncons4).describe(ret=True)
+        ncedc = cn.Graph(sample_noncons4).compress(type='NC-ED')
 
-        cmpr_dsc = CompNet(ncedc).describe(ret=True)
+        cmpr_dsc = cn.Graph(ncedc).describe(ret=True)
         # Check Null Excess
         assert cmpr_dsc['Excess size'] == 0
         # Check Conserved Compressed size
         assert cmpr_dsc['Compressed size'] == dsc['Compressed size'] == cmpr_dsc['Gross size']
 
     def test_compress_NC_MAX(self):
-        dsc = CompNet(sample_noncons4).describe(ret=True)
-        ncmaxc = CompNet(sample_noncons4).compress(type='NC-MAX')
+        dsc = cn.Graph(sample_noncons4).describe(ret=True)
+        ncmaxc = cn.Graph(sample_noncons4).compress(type='NC-MAX')
 
-        cmpr_dsc = CompNet(ncmaxc).describe(ret=True)
+        cmpr_dsc = cn.Graph(ncmaxc).describe(ret=True)
         # Check Null Excess
         assert cmpr_dsc['Excess size'] == 0
         # Check Conserved Compressed size
@@ -48,20 +48,20 @@ class TestCompression:
     def test_compression_factor(self):
         import numpy as np, pylab as plt
 
-        compressed = CompNet(sample_bilateral).compress(type='bilateral')
+        compressed = cn.Graph(sample_bilateral).compress(type='bilateral')
         ps = np.array(list(np.linspace(0.1, 15.01, 100)) + [16] )
-        cfs = [compression_factor(sample_bilateral, compressed, p=p) for p in ps]
+        cfs = [cn.compression_factor(sample_bilateral, compressed, p=p) for p in ps]
         plt.axhline(cfs[-1], color='k')
         plt.plot(ps, cfs, color='red')
         plt.show()
         assert (np.array(cfs)>=cfs[-1]).all()
 
         ps = np.array(list(np.linspace(1, 20, 200))+[50])
-        compressed1 = CompNet(sample_noncons4).compress(type='nc-ed')
-        compressed2 = CompNet(sample_noncons4).compress(type='nc-max')
-        cfs1 = [compression_factor(sample_noncons4, compressed1, p=p, _max_comp_p=200)
+        compressed1 = cn.Graph(sample_noncons4).compress(type='nc-ed')
+        compressed2 = cn.Graph(sample_noncons4).compress(type='nc-max')
+        cfs1 = [cn.compression_factor(sample_noncons4, compressed1, p=p, _max_comp_p=200)
                 for p in ps]
-        cfs2 = [compression_factor(sample_noncons4, compressed2, p=p, _max_comp_p=200)
+        cfs2 = [cn.compression_factor(sample_noncons4, compressed2, p=p, _max_comp_p=200)
                 for p in ps]
 
         plt.axhline(cfs1[-1], color='k')
@@ -77,14 +77,14 @@ class TestCompression:
 
 def test_compression_factor(df, plot=True):
     ps = np.array(list(np.linspace(1, 20, 191))+[50])
-    compressed1 = CompNet(df).compress(type='nc-ed', verbose=False)
-    compressed2 = CompNet(df).compress(type='nc-max', verbose=False)
-    compressed3 = CompNet(df).compress(type='c', verbose=False)
-    cfs1 = [compression_factor(df, compressed1, p=p, _max_comp_p=200)
+    compressed1 = cn.Graph(df).compress(type='nc-ed', verbose=False)
+    compressed2 = cn.Graph(df).compress(type='nc-max', verbose=False)
+    compressed3 = cn.Graph(df).compress(type='c', verbose=False)
+    cfs1 = [cn.compression_factor(df, compressed1, p=p, _max_comp_p=200)
             for p in ps]
-    cfs2 = [compression_factor(df, compressed2, p=p, _max_comp_p=200)
+    cfs2 = [cn.compression_factor(df, compressed2, p=p, _max_comp_p=200)
             for p in ps]
-    cfs3 = [compression_factor(df, compressed3, p=p, _max_comp_p=200)
+    cfs3 = [cn.compression_factor(df, compressed3, p=p, _max_comp_p=200)
             for p in ps]
     if plot:
         plt.axhline(cfs1[-1], color='k')

@@ -104,31 +104,29 @@ def compression_factor(df1, df2, p=2, _max_comp_p=15, t=False):
 # class self: ...
 # self = self()
 
-class CompNet:
+class Graph:
     __SEP = '__<>__<>__'
 
-    def __init__(self, df):
-        self._original_network = df
+    def __init__(self, df, src='SOURCE', dst='DESTINATION', amount='AMOUNT'):
+        self._original_network = df.rename(columns={src:'SOURCE', dst:'DESTINATION', amount:'AMOUNT'})
         self.net_flow = _get_nodes_net_flow(self._original_network)
         self.describe(print_props=False, ret=False)  # Builds GMS, CMS, EMS, and properties
 
-    def _get_compressed_market_size(self, df=None):
-        df = self._original_network if df is None else df
-        return _compressed_market_size(df)
+    def _get_compressed_market_size(self):
+        return _compressed_market_size(self._original_network)
 
-    def describe(self, df=None, print_props=True, ret=False):
-        df = self._original_network if df is None else df
+    def describe(self, print_props=True, ret=False):
+        df = self._original_network
         GMS, CMS, EMS = _market_desc(df).values()
         props = pd.Series({'Gross size': GMS,  # Gross Market Size
                            'Compressed size': CMS,  # Compressed Market Size
                            'Excess size': EMS   # Excess Market Size
                            })
-        if df is None:
-            self.GMS, self.CMS, self.EMS = GMS, CMS, EMS
-            self.properties = props
-            if print_props and not ret:
-                print(tabulate(props.reset_index().rename(columns={'index':'',0:'AMOUNT'}),
-                               headers='keys', tablefmt='simple_outline', showindex=False))
+        self.GMS, self.CMS, self.EMS = GMS, CMS, EMS
+        self.properties = props
+        if print_props and not ret:
+            print(tabulate(props.reset_index().rename(columns={'index':'',0:'AMOUNT'}),
+                           headers='keys', tablefmt='simple_outline', showindex=False))
         if ret:
             return props
 
@@ -244,7 +242,7 @@ class CompNet:
         fx['AMOUNT'] = cmprsd_flws.flatten()
         return fx
 
-    def compress(self, type='bilateral', conn_sub=False, df=None,
+    def compress(self, type='bilateral', conn_sub=False,
                  compression_p=2, verbose=True, _max_comp_p=15):
         """
         Returns compressed network.
@@ -256,7 +254,7 @@ class CompNet:
             Edge list (pandas.DataFrame) corresponding to compressed network.
 
         """
-        df = self._original_network if df is None else df
+        df = self._original_network
         if type.lower() == 'nc-ed':
             compressed = self.__non_conservative_compression_ED(df=df)
         elif type.lower() == 'nc-max':
