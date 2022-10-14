@@ -143,19 +143,16 @@ sample_entangled = pd.DataFrame(
      ],
     columns=['SOURCE', 'DESTINATION' ,'AMOUNT'])
 
-sample_derrico = pd.DataFrame(
-    [['A','B', 5],
-     ['B','C', 10],
-     ['C','A', 20],
-     ],
-    columns=['SOURCE', 'DESTINATION' ,'AMOUNT'])
 
 ### Compare page 64 here: https://www.esrb.europa.eu/pub/pdf/wp/esrbwp44.en.pdf
-from compnet.algo import CompNet, compression_factor, market_desc
-CompNet(sample_derrico).compress(type='c')
-CompNet(sample_derrico).compress(type='nc-max')
-CompNet(sample_derrico).compress(type='nc-ed')
-
-
+import pandas as pd, numpy as np
+sample_derrico = pd.DataFrame([['Node A','Node B', 5],
+     ['Node B','Node C', 10],
+     ['Node C','Node A', 20],
+     ],columns=['SOURCE', 'DESTINATION' ,'AMOUNT'])
+from compnet.algo import CompNet, compression_factor, _market_desc
+c_comp = CompNet(sample_derrico).compress(type='c')
+ncmax_comp = CompNet(sample_derrico).compress(type='nc-max')
+nced__comp = CompNet(sample_derrico).compress(type='nc-ed')
 
 

@@ -4,6 +4,7 @@
 **Authors**: L. Mingarelli
 """
 
+import numpy as np, pandas as pd, pylab as plt, networkx as nx
 from compnet.algo import CompNet, compression_factor
 from compnet._testing.sample import (sample0, sample_bilateral,
                                      sample_noncons2, sample_noncons4)
@@ -72,21 +73,26 @@ class TestCompression:
         plt.show()
 
 
-import numpy as np, pandas as pd, pylab as plt
+
 
 def test_compression_factor(df, plot=True):
     ps = np.array(list(np.linspace(1, 20, 191))+[50])
     compressed1 = CompNet(df).compress(type='nc-ed', verbose=False)
     compressed2 = CompNet(df).compress(type='nc-max', verbose=False)
+    compressed3 = CompNet(df).compress(type='c', verbose=False)
     cfs1 = [compression_factor(df, compressed1, p=p, _max_comp_p=200)
             for p in ps]
     cfs2 = [compression_factor(df, compressed2, p=p, _max_comp_p=200)
             for p in ps]
+    cfs3 = [compression_factor(df, compressed3, p=p, _max_comp_p=200)
+            for p in ps]
     if plot:
         plt.axhline(cfs1[-1], color='k')
         plt.axhline(cfs2[-1], color='k')
+        plt.axhline(cfs3[-1], color='k')
         plt.plot(ps, cfs1, color='blue', label='Non-conservative ED')
         plt.plot(ps, cfs2, color='red', label='Non-conservative MAX')
+        plt.plot(ps, cfs3, color='green', label='Conservative')
         plt.legend()
         plt.xlim(1, 20)
         plt.show()
@@ -94,12 +100,17 @@ def test_compression_factor(df, plot=True):
 
 IMPROVED_COMPR = []
 for _ in range(500):
-    df = pd.DataFrame({'SOURCE':     ['A', 'A', 'A', 'B', 'B', 'C'],
-                       'DESTINATION':['B', 'C', 'D', 'C', 'D', 'D'],
-                       # 'AMOUNT': np.random.randint(-100, 100, 6)}
-                       'AMOUNT': np.random.randn(6) * 100}
-                      )
-    cfs1, cfs2 = test_compression_factor(df, plot=False)
+    # df = pd.DataFrame({'SOURCE':      ['A', 'A', 'A', 'B', 'B', 'C'],
+    #                    'DESTINATION': ['B', 'C', 'D', 'C', 'D', 'D'],
+    #                    # 'AMOUNT': np.random.randint(-100, 100, 6)}
+    #                    # 'AMOUNT': np.random.randn(6) * 100+10}
+    #                    # 'AMOUNT': np.random.power(0.5, 6) * 100 + 10}
+    #                    'AMOUNT': (np.random.power(0.5, 6) * 100 + 10)*(np.random.randn(6) * 100+10)}
+    #                   )
+    df = pd.DataFrame(nx.erdos_renyi_graph(15, .25, directed=True).edges(),
+                      columns=['SOURCE', 'DESTINATION']).astype(str)
+    df['AMOUNT'] = (np.random.power(0.5, df.shape[0]) * 100 + 10) * (np.random.randn(df.shape[0]) * 100 + 10)
+    cfs1, cfs2 = test_compression_factor(df, plot=True)
     IMPROVED_COMPR.append(cfs1[10]-cfs2[10])
     if (cfs1<cfs2).any():
         if (~np.isclose(cfs1[cfs1<cfs2], cfs2[cfs1<cfs2])).any():

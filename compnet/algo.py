@@ -10,15 +10,22 @@ from tabulate import tabulate
 from functools import lru_cache
 __SEP = '__<>__<>__'
 
+def _flip_neg_amnts(df):
+    f = df.copy(deep=True)
+    f_flip = f[f.AMOUNT<0].iloc[:, [1,0,2]]
+    f_flip.columns = df.columns
+    f_flip['AMOUNT'] *= -1
+    f[f.AMOUNT<0] = f_flip
+    return f
 def _get_nodes_net_flow(df):
   return pd.concat([df.groupby('SOURCE').AMOUNT.sum(),
                     df.groupby('DESTINATION').AMOUNT.sum()],
                     axis=1).fillna(0).T.diff().iloc[-1,:].sort_index()
-def compressed_market_size(g):
+def _compressed_market_size(g):
   return _get_nodes_net_flow(g).clip(lower=0).sum()
-def market_desc(df):
+def _market_desc(df):
     GMS = df.AMOUNT.sum()
-    CMS = compressed_market_size(df)
+    CMS = _compressed_market_size(df)
     EMS = GMS - CMS
     return {'GMS':GMS, 'CMS':CMS, 'EMS':EMS}
 
@@ -88,12 +95,10 @@ def compression_factor(df1, df2, p=2, _max_comp_p=15, t=False):
         Lp2 = (2 / (N*(N-1)) * (df2.AMOUNT.abs()**p).sum()) ** (1/p)
         CR = 2 / (N*(N-1)) * (Lp2 / Lp1)
     else:  # If p>_max_comp_p (p>15 by default) returns the limit p=∞
-        CR = market_desc(df2)['EMS'] / market_desc(df1)['EMS']
+        CR = _market_desc(df2)['EMS'] / _market_desc(df1)['EMS']
 
     CF = 1 - CR
     return CF
-
-
 
 
 # class self: ...
@@ -109,11 +114,11 @@ class CompNet:
 
     def _get_compressed_market_size(self, df=None):
         df = self._original_network if df is None else df
-        return compressed_market_size(df)
+        return _compressed_market_size(df)
 
     def describe(self, df=None, print_props=True, ret=False):
         df = self._original_network if df is None else df
-        GMS, CMS, EMS = market_desc(df).values()
+        GMS, CMS, EMS = _market_desc(df).values()
         props = pd.Series({'Gross size': GMS,  # Gross Market Size
                            'Compressed size': CMS,  # Compressed Market Size
                            'Excess size': EMS   # Excess Market Size
@@ -127,14 +132,6 @@ class CompNet:
         if ret:
             return props
 
-    def _flip_neg_amnts(self, df):
-        f = df.copy(deep=True)
-        f_flip = f[f.AMOUNT < 0].iloc[:, [1, 0, 2]]
-        f_flip.columns = df.columns
-        f_flip['AMOUNT'] *= -1
-        f[f.AMOUNT < 0] = f_flip
-        return f
-
     def __bilateral_compression(self, df):
         """
         Returns bilaterally compressed network
@@ -145,8 +142,8 @@ class CompNet:
             pandas.DataFrame containing edge list of bilaterally compressed network
         """
         rel_lab = df.SOURCE.astype(str) + self.__SEP + df.DESTINATION.astype(str)
-        bil_rel = (df.SOURCE.astype(str).apply(list) +
-                   df.DESTINATION.astype(str).apply(list)
+        bil_rel = (df.SOURCE.astype(str).apply(lambda x: [x]) +
+                   df.DESTINATION.astype(str).apply(lambda x: [x])
                    ).apply(sorted).apply(lambda l: self.__SEP.join(l))
 
         rf = df.set_index(bil_rel)
@@ -157,10 +154,11 @@ class CompNet:
                                                   columns=['SOURCE', 'DESTINATION']),
                         rf],
                        axis=1).drop(columns='index')
-        return self._flip_neg_amnts(rf)
+        return _flip_neg_amnts(rf)
 
     def __conservative_compression(self, df):
-        edgs = df.set_index(df.SOURCE + self.__SEP + df.DESTINATION)[['AMOUNT']].T
+        f = self.__bilateral_compression(_flip_neg_amnts(df))
+        edgs = f.set_index(f.SOURCE + self.__SEP + f.DESTINATION)[['AMOUNT']].T
         @lru_cache()
         def loop2edg(tpl):
             return list(f'{x}{self.__SEP}{y}' for x, y in zip((tpl[-1],) + tpl[:-1], tpl))
@@ -168,17 +166,18 @@ class CompNet:
         def get_minedg(cycle):
             return edgs[loop2edg(cycle)].T.min().AMOUNT
 
-        G = nx.DiGraph(list(df.iloc[:, :2].values))
-        cycles = [tuple(c) for c in nx.simple_cycles(G)]
-        cycles_len_minedg = [len(c)*get_minedg(c) for c in cycles]
-        while cycles:
-            idx = np.argmax(cycles_len_minedg)
-            cycle = cycles[idx]
+        G = nx.DiGraph(list(f.iloc[:, :2].values))
+        cycles_len_minedg = [(tuple(c), len(c) * get_minedg(tuple(c)))
+                             for c in nx.simple_cycles(G)]
+        while cycles_len_minedg:
+            idx = np.argmax((c[1] for c in cycles_len_minedg))
+            cycle = cycles_len_minedg[idx][0]
             cls = loop2edg(cycle)
             if pd.Series(cls).isin(edgs.columns).all():
-                edgs[cls] -= get_minedg(cycle)
-                edgs.drop(columns=[edgs[cls].columns[idx]], inplace=True)
-            cycles.pop(idx)
+                min_edg = edgs[cls].min(1).AMOUNT
+                drop_col = edgs[cls].columns[(edgs[cls]==min_edg).values[0]][0]
+                edgs[cls] -= min_edg
+                edgs.drop(columns=[drop_col], inplace=True)
             cycles_len_minedg.pop(idx)
         edgs = edgs.T.reset_index()
         amnt = edgs.AMOUNT
@@ -271,7 +270,7 @@ class CompNet:
 
         if verbose:
             comp_rt = compression_factor(df1=df, df2=compressed, p=compression_p, _max_comp_p=_max_comp_p)
-            print(f"Compression Factor  CF(p={compression_p})={comp_rt}")
+            print(f"Compression Factor  CF(p={compression_p}) = {comp_rt}")
         return compressed
 
 
@@ -279,13 +278,6 @@ class CompNet:
 
 
 # Nodes net flow
-def _flip_neg_amnts(df):
-    f = df.copy(deep=True)
-    f_flip = f[f.AMOUNT<0].iloc[:, [1,0,2]]
-    f_flip.columns = df.columns
-    f_flip['AMOUNT'] *= -1
-    f[f.AMOUNT<0] = f_flip
-    return f
 def compressed_network_bilateral(df):
     """
     Returns bilaterally compressed network
