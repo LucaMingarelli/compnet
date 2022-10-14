@@ -12,7 +12,6 @@ from compnet._testing.sample import (sample0, sample_bilateral,
 class TestCompression:
 
     def test_describe(self):
-
         cn.Graph(sample_bilateral).describe()
         assert (cn.Graph(sample_bilateral).describe(ret=True) == [30, 15, 15]).all()
 
@@ -59,9 +58,9 @@ class TestCompression:
         ps = np.array(list(np.linspace(1, 20, 200))+[50])
         compressed1 = cn.Graph(sample_noncons4).compress(type='nc-ed')
         compressed2 = cn.Graph(sample_noncons4).compress(type='nc-max')
-        cfs1 = [cn.compression_factor(sample_noncons4, compressed1, p=p, _max_comp_p=200)
+        cfs1 = [cn.compression_factor(sample_noncons4, compressed1, p=p)
                 for p in ps]
-        cfs2 = [cn.compression_factor(sample_noncons4, compressed2, p=p, _max_comp_p=200)
+        cfs2 = [cn.compression_factor(sample_noncons4, compressed2, p=p)
                 for p in ps]
 
         plt.axhline(cfs1[-1], color='k')

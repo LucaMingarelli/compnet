@@ -24,7 +24,7 @@ def _get_nodes_net_flow(df):
 def _compressed_market_size(g):
   return _get_nodes_net_flow(g).clip(lower=0).sum()
 def _market_desc(df):
-    GMS = df.AMOUNT.sum()
+    GMS = df.AMOUNT.abs().sum()
     CMS = _compressed_market_size(df)
     EMS = GMS - CMS
     return {'GMS':GMS, 'CMS':CMS, 'EMS':EMS}
