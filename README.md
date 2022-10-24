@@ -1,4 +1,5 @@
-# ![](compnet/__res/icons/Network_Compression.png) *compnet* — Compression for Market Networks data 
+# <img src="compnet/__res/icons/Network_Compression.png" width="120px"/> *compnet* — Compression for Market Network data 
+
 
 [![version](https://img.shields.io/badge/version-0.0.1-success.svg)](#)
 

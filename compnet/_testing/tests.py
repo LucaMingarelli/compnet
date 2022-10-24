@@ -76,24 +76,29 @@ class TestCompression:
 
 def test_compression_factor(df, plot=True):
     ps = np.array(list(np.linspace(1, 20, 191))+[50])
-    compressed1 = cn.Graph(df).compress(type='nc-ed', verbose=False)
-    compressed2 = cn.Graph(df).compress(type='nc-max', verbose=False)
-    compressed3 = cn.Graph(df).compress(type='c', verbose=False)
+    graph = cn.Graph(df)
+    compressed1 = graph.compress(type='nc-ed', verbose=False)
+    compressed2 = graph.compress(type='nc-max', verbose=False)
+    compressed3 = graph.compress(type='c', verbose=False)
+    compressed4 = graph.compress(type='bilateral', verbose=False)
     cfs1 = [cn.compression_factor(df, compressed1, p=p)
             for p in ps]
     cfs2 = [cn.compression_factor(df, compressed2, p=p)
             for p in ps]
     cfs3 = [cn.compression_factor(df, compressed3, p=p)
             for p in ps]
-    cf_ems = cn.compression_factor(df, compressed3, p='ems_ratio')
+    cfs4 = [cn.compression_factor(df, compressed4, p=p)
+            for p in ps]
+    cf_ems = cn.compression_factor(df, compressed4, p='ems_ratio')
     if plot:
         plt.axhline(cfs1[-1], color='k')
         plt.axhline(cfs2[-1], color='k')
         plt.axhline(cfs3[-1], color='k')
-        plt.axhline(cf_ems, color='purple', label='EMS compression factor')
+        # plt.axhline(cf_ems, color='orange', label='EMS compression factor')
         plt.plot(ps, cfs1, color='blue', label='Non-conservative ED')
         plt.plot(ps, cfs2, color='red', label='Non-conservative MAX')
         plt.plot(ps, cfs3, color='green', label='Conservative')
+        plt.plot(ps, cfs4, color='purple', label='Bilateral')
         plt.legend()
         plt.xlim(1, 20)
         plt.show()
@@ -108,7 +113,7 @@ for _ in range(500):
     #                    # 'AMOUNT': np.random.power(0.5, 6) * 100 + 10}
     #                    'AMOUNT': (np.random.power(0.5, 6) * 100 + 10)*(np.random.randn(6) * 100+10)}
     #                   )
-    df = pd.DataFrame(nx.erdos_renyi_graph(15, .25, directed=True).edges(),
+    df = pd.DataFrame(nx.erdos_renyi_graph(10, .25, directed=True).edges(),
                       columns=['SOURCE', 'DESTINATION']).astype(str)
     df['AMOUNT'] = (np.random.power(0.5, df.shape[0]) * 100 + 10) * (np.random.randn(df.shape[0]) * 100 + 10)
     cfs1, cfs2 = test_compression_factor(df, plot=True)

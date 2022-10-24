@@ -1,13 +1,15 @@
-"""  Created on 10/10/2022::
+"""  Created on 23/10/2022::
 ------------- algo.py -------------
 
 **Authors**: L. Mingarelli
 """
 
 import numpy as np, pandas as pd
-import numba, networkx as nx
+import numba, networkx as nx, warnings
 from tabulate import tabulate
+from tqdm import tqdm
 from functools import lru_cache
+
 __SEP = '__<>__<>__'
 
 def _flip_neg_amnts(df):
@@ -17,15 +19,20 @@ def _flip_neg_amnts(df):
     f_flip['AMOUNT'] *= -1
     f[f.AMOUNT<0] = f_flip
     return f
-def _get_nodes_net_flow(df):
-  return pd.concat([df.groupby('SOURCE').AMOUNT.sum(),
-                    df.groupby('DESTINATION').AMOUNT.sum()],
-                    axis=1).fillna(0).T.diff().iloc[-1,:].sort_index()
-def _compressed_market_size(g):
-  return _get_nodes_net_flow(g).clip(lower=0).sum()
-def _market_desc(df):
+
+def _get_nodes_net_flow(df, grouper=None):
+    def _get_group_nodes_net_flow(f):
+        return pd.concat([f.groupby('SOURCE').AMOUNT.sum(),
+                          f.groupby('TARGET').AMOUNT.sum()],
+                          axis=1).fillna(0).T.diff().iloc[-1, :].sort_index()
+
+    return df.groupby(grouper).apply(_get_group_nodes_net_flow) if grouper else _get_group_nodes_net_flow(df)
+
+def _compressed_market_size(f, grouper=None):
+  return _get_nodes_net_flow(f, grouper).clip(lower=0).sum()
+def _market_desc(df, grouper=None):
     GMS = df.AMOUNT.abs().sum()
-    CMS = _compressed_market_size(df)
+    CMS = _compressed_market_size(df, grouper)
     EMS = GMS - CMS
     return {'GMS':GMS, 'CMS':CMS, 'EMS':EMS}
 
@@ -56,7 +63,11 @@ def _noncons_compr_max_min(ordered_flows, max_links):
 
     return EL, pairs
 
-def compression_factor(df1, df2, p=2, t=False):
+def compression_efficiency(df, df_compressed):
+    CE = 1 - _market_desc(df_compressed)['EMS'] / _market_desc(df)['EMS']
+    return CE
+
+def compression_factor(df1, df2, p=2):
     r"""Returns compression factor of df2 with respect to df1.
 
     The compression factor CF for two networks with N nodes and weighted adjacency matrix C_1 and C_2 is defined as
@@ -89,38 +100,43 @@ def compression_factor(df1, df2, p=2, t=False):
         Compression factor
     """
 
-    if str(p).lower()=='ems_ratio':  # In some cases this corresponds to the limit p=∞
-        CR = _market_desc(df2)['EMS'] / _market_desc(df1)['EMS']
+    if str(p).lower()=='ems_ratio':  # In the bilateral compression case this corresponds to the limit p=∞
+        CR = 1- compression_efficiency(df=df1, df_compressed=df2)
     else:
-        N = len(set(df1[['SOURCE', 'DESTINATION']].values.flatten()))
-        Lp1 = (2 / (N*(N-1)) * (df1.AMOUNT.abs()**p).sum()) ** (1/p)
-        Lp2 = (2 / (N*(N-1)) * (df2.AMOUNT.abs()**p).sum()) ** (1/p)
+        N = len(set(df1[['SOURCE', 'TARGET']].values.flatten()))
+        Lp1 = (df1.AMOUNT.abs()**p).sum() ** (1/p) # * (2 / (N*(N-1)))**(1/p)
+        Lp2 = (df2.AMOUNT.abs()**p).sum() ** (1/p) # * (2 / (N*(N-1)))**(1/p)
         CR = 2 / (N*(N-1)) * (Lp2 / Lp1)
+        # CR = Lp2 / Lp1
 
     CF = 1 - CR
     return CF
 
 
+
 # class self: ...
 # self = self()
+# self.__SEP = '__<>__<>__'
+# self.__GROUPER = 'GROUPER'
 
 class Graph:
     __SEP = '__<>__<>__'
 
-    def __init__(self, df, src='SOURCE', dst='DESTINATION', amount='AMOUNT'):
-        self._original_network = df.rename(columns={src:'SOURCE', dst:'DESTINATION', amount:'AMOUNT'})
-        self.net_flow = _get_nodes_net_flow(self._original_network)
-        self.describe(print_props=False, ret=False)  # Builds GMS, CMS, EMS, and properties
+    def __init__(self, df, source='SOURCE', target='TARGET', amount='AMOUNT', grouper=None):
 
-    def _get_compressed_market_size(self):
-        return _compressed_market_size(self._original_network)
+        self._labels = [source, target, amount]+([grouper] if grouper else [])
+        self.__GROUPER = 'GROUPER' if grouper else None
+        self._labels_map = {source: 'SOURCE', target: 'TARGET', amount: 'AMOUNT', grouper:self.__GROUPER}
+        self._original_network = df[self._labels].rename(columns=self._labels_map)
+        self.net_flow = _get_nodes_net_flow(self._original_network, grouper=self.__GROUPER)
+        self.describe(print_props=False, ret=False)  # Builds GMS, CMS, EMS, and properties
 
     def describe(self, print_props=True, ret=False):
         df = self._original_network
-        GMS, CMS, EMS = _market_desc(df).values()
-        props = pd.Series({'Gross size': GMS,  # Gross Market Size
+        GMS, CMS, EMS = _market_desc(df, grouper=self.__GROUPER).values()
+        props = pd.Series({'Gross size': GMS,       # Gross Market Size
                            'Compressed size': CMS,  # Compressed Market Size
-                           'Excess size': EMS   # Excess Market Size
+                           'Excess size': EMS       # Excess Market Size
                            })
         self.GMS, self.CMS, self.EMS = GMS, CMS, EMS
         self.properties = props
@@ -134,14 +150,14 @@ class Graph:
         """
         Returns bilaterally compressed network
         Args:
-            df: pandas.DataFrame containing three columns SOURCE, DESTINATION, AMOUNT
+            df: pandas.DataFrame containing three columns SOURCE, TARGET, AMOUNT
 
         Returns:
             pandas.DataFrame containing edge list of bilaterally compressed network
         """
-        rel_lab = df.SOURCE.astype(str) + self.__SEP + df.DESTINATION.astype(str)
+        rel_lab = df.SOURCE.astype(str) + self.__SEP + df.TARGET.astype(str)
         bil_rel = (df.SOURCE.astype(str).apply(lambda x: [x]) +
-                   df.DESTINATION.astype(str).apply(lambda x: [x])
+                   df.TARGET.astype(str).apply(lambda x: [x])
                    ).apply(sorted).apply(lambda l: self.__SEP.join(l))
 
         rf = df.set_index(bil_rel)
@@ -149,14 +165,14 @@ class Graph:
 
         rf = rf.sort_values(by=['SOURCE', 'AMOUNT']).reset_index().groupby('index').AMOUNT.sum().reset_index()
         rf = pd.concat([pd.DataFrame.from_records(rf['index'].str.split(self.__SEP).values,
-                                                  columns=['SOURCE', 'DESTINATION']),
+                                                  columns=['SOURCE', 'TARGET']),
                         rf],
                        axis=1).drop(columns='index')
         return _flip_neg_amnts(rf)
 
     def __conservative_compression(self, df):
         f = self.__bilateral_compression(_flip_neg_amnts(df))
-        edgs = f.set_index(f.SOURCE + self.__SEP + f.DESTINATION)[['AMOUNT']].T
+        edgs = f.set_index(f.SOURCE + self.__SEP + f.TARGET)[['AMOUNT']].T
         @lru_cache()
         def loop2edg(tpl):
             return list(f'{x}{self.__SEP}{y}' for x, y in zip((tpl[-1],) + tpl[:-1], tpl))
@@ -180,7 +196,7 @@ class Graph:
         edgs = edgs.T.reset_index()
         amnt = edgs.AMOUNT
         edgs = pd.DataFrame(edgs['index'].str.split(self.__SEP).to_list(),
-                            columns=['SOURCE', 'DESTINATION'])
+                            columns=['SOURCE', 'TARGET'])
         edgs['AMOUNT'] = amnt
         return edgs
 
@@ -215,11 +231,11 @@ class Graph:
         pairs = [*zip(nodes_r.reshape(1, -1)[:, pairs[:, 0]][0],
                       nodes.reshape(1, -1)[:, pairs[:, 1]][0])]
 
-        fx = pd.DataFrame.from_records(pairs, columns=['SOURCE', 'DESTINATION'])
+        fx = pd.DataFrame.from_records(pairs, columns=['SOURCE', 'TARGET'])
         fx['AMOUNT'] = EL
         return fx
 
-    def __non_conservative_compression_ED(self, df):
+    def _non_conservative_compression_ED(self, df):
         nodes_flow = self.net_flow if df is None else _get_nodes_net_flow(df)
 
         flows = nodes_flow.values
@@ -238,22 +254,21 @@ class Graph:
         cmprsd_edgs = neg_nds.reshape(-1, 1) + (self.__SEP + pos_nds)
 
         fx = pd.DataFrame.from_records(pd.Series(cmprsd_edgs.flatten()).str.split(self.__SEP),
-                                       columns=['SOURCE', 'DESTINATION'])
+                                       columns=['SOURCE', 'TARGET'])
         fx['AMOUNT'] = cmprsd_flws.flatten()
         return fx
 
-    def __check_compression(self, df, df_compressed):
+    def _check_compression(self, df, df_compressed):
         GMS, CMS, EMS = _market_desc(df).values()
         GMS_comp, CMS_comp, EMS_comp = _market_desc(df_compressed).values()
-        flows = _get_nodes_net_flow(df)
-        flows_comp = _get_nodes_net_flow(df_compressed)
-        assert EMS>=EMS_comp, f"Compression check failed on EMS. \n\n   Original EMS = {EMS} \n Compressed EMS = {EMS_comp}"
-        assert (flows==flows_comp).all(), f"Compression check failed on FLOWS. \n\n  Original flows = {flows.to_dict()} \nCompressed flows = {flows_comp.to_dict()}"
-        assert CMS==CMS_comp, f"Compression check failed on CMS. \n\n   Original CMS = {CMS} \n Compressed CMS = {CMS_comp}"
+        flows = _get_nodes_net_flow(df).sort_index()
+        flows_comp = _get_nodes_net_flow(df_compressed).sort_index()
+        assert EMS>EMS_comp or np.isclose(abs(EMS-EMS_comp), 0.0, atol=1e-6), f"Compression check failed on EMS. \n\n   Original EMS = {EMS} \n Compressed EMS = {EMS_comp}"
+        assert np.isclose(pd.concat([flows, flows_comp], axis=1).fillna(0).diff(0).abs().max().max(), 0.0, atol=1e-6), f"Compression check failed on FLOWS. \n\n  Original flows = {flows.to_dict()} \nCompressed flows = {flows_comp.to_dict()}"
+        assert np.isclose(CMS, CMS_comp, atol=1e-6), f"Compression check failed on CMS. \n\n   Original CMS = {CMS} \n Compressed CMS = {CMS_comp}"
 
-
-    def compress(self, type='bilateral', conn_sub=False,
-                 compression_p=2, verbose=True, __check_compr=True):
+    def compress(self, type='bilateral',
+                 compression_p=2, verbose=True, _check_compr=True, progress=True):
         """
         Returns compressed network.
         Args:
@@ -266,24 +281,34 @@ class Graph:
         """
         df = self._original_network
         if type.lower() == 'nc-ed':
-            compressed = self.__non_conservative_compression_ED(df=df)
+            compressor = self._non_conservative_compression_ED
         elif type.lower() == 'nc-max':
-            compressed = self.__non_conservative_compression_MAX(df=df)
+            compressor = self.__non_conservative_compression_MAX
         elif type.lower() == 'c':
-            compressed = self.__conservative_compression(df=df)
+            compressor = self.__conservative_compression
         elif type.lower() == 'bilateral':
-            compressed = self.__bilateral_compression(df=df)
+            compressor = self.__bilateral_compression
         else:
             raise Exception(f'Type {type} not recognised: please input either of NC-ED, NC-MAX, C, or bilateral.')
-        if __check_compr:
-            self.__check_compression(df=df, df_compressed=compressed)
+
+        if self.__GROUPER:
+            grpd_df = df.groupby(self.__GROUPER)
+            if progress:
+                tqdm.pandas()
+                df_compressed = grpd_df.progress_apply(compressor).reset_index(drop=True)
+            else:
+                df_compressed = grpd_df.apply(compressor).reset_index(drop=True)
+        else:
+            df_compressed = compressor(df)
+
+        if _check_compr:
+            self._check_compression(df=df, df_compressed=df_compressed)
         if verbose:
-            comp_rt = compression_factor(df1=df, df2=compressed, p=compression_p)
-            print(f"Compression Factor  CF(p={compression_p}) = {comp_rt}")
-        return compressed
-
-
-
+            comp_rt = compression_factor(df1=df, df2=df_compressed, p=compression_p)
+            comp_eff = compression_efficiency(df=df, df_compressed=df_compressed)
+            print(f"Compression Efficiency CE = {comp_eff}")
+            print(f"Compression Factor CF(p={compression_p}) = {comp_rt}")
+        return df_compressed.rename(columns={v:k for k,v in self._labels_map.items()})
 
 
 # Nodes net flow
@@ -291,14 +316,14 @@ def compressed_network_bilateral(df):
     """
     Returns bilaterally compressed network
     Args:
-        df: pandas.DataFrame containing three columns SOURCE, DESTINATION, AMOUNT
+        df: pandas.DataFrame containing three columns SOURCE, TARGET, AMOUNT
 
     Returns:
         pandas.DataFrame containing edge list of bilaterally compressed network
     """
-    rel_lab = df.SOURCE.astype(str) + __SEP + df.DESTINATION.astype(str)
+    rel_lab = df.SOURCE.astype(str) + __SEP + df.TARGET.astype(str)
     bil_rel = (df.SOURCE.astype(str).apply(list)+
-              df.DESTINATION.astype(str).apply(list)
+              df.TARGET.astype(str).apply(list)
                ).apply(sorted).apply(lambda l: __SEP.join(l))
 
     rf = df.set_index(bil_rel)
@@ -306,7 +331,7 @@ def compressed_network_bilateral(df):
 
     rf = rf.sort_values(by=['SOURCE', 'AMOUNT']).reset_index().groupby('index').AMOUNT.sum().reset_index()
     rf = pd.concat([pd.DataFrame.from_records(rf['index'].str.split(__SEP).values,
-                                              columns=['SOURCE', 'DESTINATION']),
+                                              columns=['SOURCE', 'TARGET']),
                     rf],
                    axis=1).drop(columns='index')
     return _flip_neg_amnts(rf)
@@ -344,10 +369,9 @@ def compressed_network_non_conservative(df):
     pairs = [*zip(nodes_r.reshape(1,-1)[:, pairs[:, 0]][0],
                     nodes.reshape(1,-1)[:, pairs[:, 1]][0])]
 
-    fx = pd.DataFrame.from_records(pairs,columns=['SOURCE', 'DESTINATION'])
+    fx = pd.DataFrame.from_records(pairs,columns=['SOURCE', 'TARGET'])
     fx['AMOUNT'] = EL
     return fx
-
 
 # For now assuming applied on fully connected subset
 def non_conservative_compression_ED(df):
@@ -368,13 +392,14 @@ def non_conservative_compression_ED(df):
     cmprsd_edgs = neg_nds.reshape(-1, 1) + (__SEP + pos_nds)
 
     fx = pd.DataFrame.from_records(pd.Series(cmprsd_edgs.flatten()).str.split(__SEP),
-                                   columns=['SOURCE', 'DESTINATION'])
+                                   columns=['SOURCE', 'TARGET'])
     fx['AMOUNT'] = cmprsd_flws.flatten()
     return fx
 
 def compressed_network_conservative(df):
     df = compressed_network_bilateral(df)
     ...
+
 
 
 
