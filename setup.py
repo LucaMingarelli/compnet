@@ -5,7 +5,7 @@
 """
 
 import setuptools
-import compnet as cn
+from compnet.__about__ as (__about__, __author__, __email__, __version__, __url__)
 
 with open("README.md", 'r') as f:
     long_description = f.read()
@@ -16,11 +16,11 @@ with open("compnet/requirements.txt") as f:
 
 setuptools.setup(
     name="compnet",
-    version=cn.__version__,
-    author=cn.__author__,
-    author_email=cn.__email__,
-    description=cn.__about__,
-    url=cn.__url__,
+    version=__version__,
+    author=__author__,
+    author_email=__email__,
+    description=__about__,
+    url=__url__,
     license='MIT',
     long_description=long_description,
     long_description_content_type="text/markdown",
