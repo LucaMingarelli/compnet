@@ -1,7 +1,7 @@
-# <img src="compnet/__res/icons/Network_Compression.png" width="120px"/> *compnet* — Compression for Market Network data 
+# <img src="compnet/res/icons/Network_Compression.png" width="120px"/> *compnet* — Compression for Market Network data 
 
 
-[![version](https://img.shields.io/badge/version-0.0.1-success.svg)](#)
+[![version](https://img.shields.io/badge/version-0.0.0-success.svg)](#)
 
 # About
 

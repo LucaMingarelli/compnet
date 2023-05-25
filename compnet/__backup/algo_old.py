@@ -6,7 +6,7 @@
 
 
 import numpy as np, pandas as pd
-from compnet._testing.sample import (sample0, sample_bilateral, sample_noncons2, sample_noncons4)
+from compnet.tests.sample import (sample0, sample_bilateral, sample_noncons2, sample_noncons4)
 import numba
 __SEP = '__<>__<>__'
 

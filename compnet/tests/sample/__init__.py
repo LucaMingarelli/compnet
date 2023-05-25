@@ -4,4 +4,4 @@
 **Authors**: L. Mingarelli
 """
 
-from compnet._testing.sample.sample0 import *
+from compnet.tests.sample.sample0 import *

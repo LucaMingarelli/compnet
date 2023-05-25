@@ -6,7 +6,7 @@
 
 import numpy as np, pandas as pd, pylab as plt, networkx as nx
 import compnet as cn
-from compnet._testing.sample import (sample0, sample_bilateral,
+from compnet.tests.sample import (sample0, sample_bilateral,
                                      sample_noncons2, sample_noncons4)
 
 class TestCompression:
@@ -133,7 +133,7 @@ plt.show()
 ### FIND CLOSED CHAINS
 ########################
 import networkx as nx
-from compnet._testing.sample import (sample_cycle, sample_nested_cycle1, sample_nested_cycle2,
+from compnet.tests.sample import (sample_cycle, sample_nested_cycle1, sample_nested_cycle2,
                                      sample_nested_cycle3, sample_nested_cycle4, sample_entangled)
 
 # G = nx.DiGraph([(0, 1), (0, 2), (1, 2)])
