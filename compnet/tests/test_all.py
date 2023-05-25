@@ -5,7 +5,7 @@
 """
 import pandas as pd, numpy as np
 
-from compnet.tests.sample import (sample0, sample_bilateral, sample_cycle, sample_entangled,
+from compnet.tests.sample.sample0 import (sample0, sample_bilateral, sample_cycle, sample_entangled,
                                   sample_nested_cycle1, sample_nested_cycle2, sample_nested_cycle3, sample_nested_cycle4,
                                   sample_noncons1, sample_noncons1_compressed, sample_noncons2, sample_noncons2_compresseds,
                                   sample_noncons2_compressed, sample_noncons3, sample_noncons3_compressed, sample_noncons4, 
