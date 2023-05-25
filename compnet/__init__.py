@@ -3,4 +3,7 @@
 
 **Authors**: L. Mingarelli
 """
+
+from .__about__ import *
 from compnet.algo import Graph, compression_factor
+
