@@ -10,7 +10,7 @@ sample0 = pd.DataFrame(
     [['A','B', 5],
      ['B','C', 15]
      ],
-    columns=['SOURCE', 'DESTINATION' ,'AMOUNT']
+    columns=['SOURCE', 'TARGET' ,'AMOUNT']
 )
 
 sample_bilateral = pd.DataFrame(
@@ -18,19 +18,19 @@ sample_bilateral = pd.DataFrame(
      ['B','C', 15],
      ['B','A', 5],
      ],
-    columns=['SOURCE', 'DESTINATION' ,'AMOUNT']
+    columns=['SOURCE', 'TARGET' ,'AMOUNT']
 )
 
 sample_noncons1 = pd.DataFrame(
     [['A','B', 6],
      ['B','C', 5],
      ],
-    columns=['SOURCE', 'DESTINATION' ,'AMOUNT'])
+    columns=['SOURCE', 'TARGET' ,'AMOUNT'])
 sample_noncons1_compressed = pd.DataFrame(
     [['A','B', 1],
      ['A','C', 5],
      ],
-    columns=['SOURCE', 'DESTINATION' ,'AMOUNT'])
+    columns=['SOURCE', 'TARGET' ,'AMOUNT'])
 
 
 sample_noncons2 = pd.DataFrame(
@@ -38,12 +38,12 @@ sample_noncons2 = pd.DataFrame(
      ['B','C', 20],
      ['C','A', 5],
      ],
-    columns=['SOURCE', 'DESTINATION' ,'AMOUNT'])
+    columns=['SOURCE', 'TARGET' ,'AMOUNT'])
 sample_noncons2_compressed = pd.DataFrame(
     [['A','C', 5],
      ['B','C', 10],
      ],
-    columns=['SOURCE', 'DESTINATION' ,'AMOUNT'])
+    columns=['SOURCE', 'TARGET' ,'AMOUNT'])
 
 # _get_nodes_net_flow(sample_noncons2)
 # _get_nodes_net_flow(compressed_network_non_conservative(sample_noncons2))
@@ -52,11 +52,11 @@ sample_noncons3 = pd.DataFrame(
     [['A','B', 5],
      ['B','C', 5],
      ],
-    columns=['SOURCE', 'DESTINATION' ,'AMOUNT'])
+    columns=['SOURCE', 'TARGET' ,'AMOUNT'])
 sample_noncons3_compressed = pd.DataFrame(
     [['A','C', 5],
      ],
-    columns=['SOURCE', 'DESTINATION' ,'AMOUNT'])
+    columns=['SOURCE', 'TARGET' ,'AMOUNT'])
 
 
 sample_noncons4 = pd.DataFrame(
@@ -64,7 +64,7 @@ sample_noncons4 = pd.DataFrame(
      ['B','C', 3],
      ['C','D', 5],
      ],
-    columns=['SOURCE', 'DESTINATION' ,'AMOUNT'])
+    columns=['SOURCE', 'TARGET' ,'AMOUNT'])
 
 # compressed_network_non_conservative(sample_noncons4)
 # _get_nodes_net_flow(sample_noncons4)
@@ -78,7 +78,7 @@ sample_noncons4_compressed = pd.DataFrame(
      ['A','D', 3],
      ['C','D', 2],
      ],
-    columns=['SOURCE', 'DESTINATION' ,'AMOUNT'])
+    columns=['SOURCE', 'TARGET' ,'AMOUNT'])
 
 
 # compressed_network_non_conservative(df=sample_noncons2)
@@ -92,7 +92,7 @@ sample_cycle = pd.DataFrame(
      ['C','D', 2],
      ['D','A', 2],
      ],
-    columns=['SOURCE', 'DESTINATION' ,'AMOUNT'])
+    columns=['SOURCE', 'TARGET' ,'AMOUNT'])
 
 sample_nested_cycle1 = pd.DataFrame(
     [['A','B', 1],
@@ -101,7 +101,7 @@ sample_nested_cycle1 = pd.DataFrame(
      ['D','A', 2],
      ['C','A', 4],
      ],
-    columns=['SOURCE', 'DESTINATION' ,'AMOUNT'])
+    columns=['SOURCE', 'TARGET' ,'AMOUNT'])
 
 sample_nested_cycle2 = pd.DataFrame(
     [['A','B', 1],
@@ -110,7 +110,7 @@ sample_nested_cycle2 = pd.DataFrame(
      ['D','A', 2],
      ['C','A', 4],
      ],
-    columns=['SOURCE', 'DESTINATION' ,'AMOUNT'])
+    columns=['SOURCE', 'TARGET' ,'AMOUNT'])
 
 sample_nested_cycle3 = pd.DataFrame(
     [['A','B', 2],
@@ -120,7 +120,7 @@ sample_nested_cycle3 = pd.DataFrame(
      ['B','E', 4],
      ['E','D', 4],
      ],
-    columns=['SOURCE', 'DESTINATION' ,'AMOUNT'])
+    columns=['SOURCE', 'TARGET' ,'AMOUNT'])
 
 sample_nested_cycle4 = pd.DataFrame(
     [['A','B', 1],
@@ -132,7 +132,7 @@ sample_nested_cycle4 = pd.DataFrame(
      ['C','D', 1],
      ['D','A', 3],
      ],
-    columns=['SOURCE', 'DESTINATION' ,'AMOUNT'])
+    columns=['SOURCE', 'TARGET' ,'AMOUNT'])
 
 sample_entangled = pd.DataFrame(
     [['A','B', 5],
@@ -141,7 +141,7 @@ sample_entangled = pd.DataFrame(
      ['C','D', 10],
      ['D','B', 3],
      ],
-    columns=['SOURCE', 'DESTINATION' ,'AMOUNT'])
+    columns=['SOURCE', 'TARGET' ,'AMOUNT'])
 
 
 ### Compare page 64 here: https://www.esrb.europa.eu/pub/pdf/wp/esrbwp44.en.pdf
@@ -149,10 +149,12 @@ import pandas as pd, numpy as np
 sample_derrico = pd.DataFrame([['Node A','Node B', 5],
      ['Node B','Node C', 10],
      ['Node C','Node A', 20],
-     ],columns=['SOURCE', 'DESTINATION' ,'AMOUNT'])
-from compnet.algo import Graph, compression_factor, _market_desc
+     ],columns=['SOURCE', 'TARGET' ,'AMOUNT'])
+from compnet.algo import Graph, compression_factor, _market_desc, compressed_network_conservative
 c_comp = Graph(sample_derrico).compress(type='c')
 ncmax_comp = Graph(sample_derrico).compress(type='nc-max')
 nced__comp = Graph(sample_derrico).compress(type='nc-ed')
 
 
+
+Graph(sample_derrico).compress(type='c')
