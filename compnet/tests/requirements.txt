@@ -1,0 +1,9 @@
+pytest
+pytest-cov
+numpy
+pandas
+numba
+scipy
+tqdm
+tabulate
+networkx
