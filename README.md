@@ -1,4 +1,4 @@
-# <img src="https://raw.githubusercontent.com/LucaMingarelli/compnet/main/compnet/res/icons/Network_Compression.png" width="120px"/> *compnet* — Compression for Market Network data 
+# <img src="compnet/res/icons/Network_Compression.png" width="120px"/> *compnet* — Compression for Market Network data 
 
 [![CircleCI](https://dl.circleci.com/status-badge/img/gh/LucaMingarelli/compnet/tree/main.svg?style=svg)](https://dl.circleci.com/status-badge/redirect/gh/LucaMingarelli/compnet/tree/main)
 [![version](https://img.shields.io/badge/version-0.0.1-success.svg)](#)
