@@ -5,7 +5,7 @@
 """
 
 import setuptools
-from compnet.__about__ as (__about__, __author__, __email__, __version__, __url__)
+from compnet.__about__ import (__about__, __author__, __email__, __version__, __url__)
 
 with open("README.md", 'r') as f:
     long_description = f.read()
