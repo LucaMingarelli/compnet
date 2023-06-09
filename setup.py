@@ -25,7 +25,7 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     packages=['compnet', 'compnet.tests'],
-    package_data={'':  ['../bindata/res/*']},
+    package_data={'':  ['../compnet/res/*']},
     install_requires=install_requirements,
     classifiers=["Programming Language :: Python :: 3",
                  "License :: OSI Approved :: MIT License",
