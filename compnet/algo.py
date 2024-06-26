@@ -30,6 +30,7 @@ def _get_nodes_net_flow(df, grouper=None):
 
 def _compressed_market_size(f, grouper=None):
   return _get_nodes_net_flow(f, grouper).clip(lower=0).sum()
+
 def _market_desc(df, grouper=None):
     GMS = df.AMOUNT.abs().sum()
     CMS = _compressed_market_size(df, grouper)
@@ -122,7 +123,18 @@ def compression_factor(df1, df2, p=2):
 class Graph:
     __SEP = '__<>__<>__'
 
-    def __init__(self, df, source='SOURCE', target='TARGET', amount='AMOUNT', grouper=None):
+    def __init__(self, df: pd.DataFrame,
+                 source: str='SOURCE', target: str='TARGET', amount: str='AMOUNT',
+                 grouper=None):
+        """
+
+        Args:
+            df:
+            source:
+            target:
+            amount:
+            grouper:
+        """
 
         self._labels = [source, target, amount]+([grouper] if grouper else [])
         self.__GROUPER = 'GROUPER' if grouper else None
@@ -131,7 +143,7 @@ class Graph:
         self.net_flow = _get_nodes_net_flow(self._original_network, grouper=self.__GROUPER)
         self.describe(print_props=False, ret=False)  # Builds GMS, CMS, EMS, and properties
 
-    def describe(self, print_props=True, ret=False):
+    def describe(self, print_props: bool=True, ret: bool=False):
         df = self._original_network
         GMS, CMS, EMS = _market_desc(df, grouper=self.__GROUPER).values()
         props = pd.Series({'Gross size': GMS,       # Gross Market Size
@@ -146,7 +158,7 @@ class Graph:
         if ret:
             return props
 
-    def __bilateral_compression(self, df):
+    def __bilateral_compression(self, df: pd.DataFrame):
         """
         Returns bilaterally compressed network
         Args:
@@ -170,7 +182,7 @@ class Graph:
                        axis=1).drop(columns='index')
         return _flip_neg_amnts(rf)
 
-    def __conservative_compression(self, df):
+    def __conservative_compression(self, df: pd.DataFrame):
         f = self.__bilateral_compression(_flip_neg_amnts(df))
         edgs = f.set_index(f.SOURCE + self.__SEP + f.TARGET)[['AMOUNT']].T
         @lru_cache()
@@ -200,7 +212,7 @@ class Graph:
         edgs['AMOUNT'] = amnt
         return edgs
 
-    def __non_conservative_compression_MAX(self, df):
+    def __non_conservative_compression_MAX(self, df: pd.DataFrame):
         """
         TODO: IN DOCS ADD https://github.com/sktime/sktime/issues/764
         Requirements of numba version and llvm
@@ -235,7 +247,7 @@ class Graph:
         fx['AMOUNT'] = EL
         return fx
 
-    def _non_conservative_compression_ED(self, df):
+    def _non_conservative_compression_ED(self, df: pd.DataFrame):
         nodes_flow = self.net_flow if df is None else _get_nodes_net_flow(df)
 
         flows = nodes_flow.values
@@ -258,7 +270,7 @@ class Graph:
         fx['AMOUNT'] = cmprsd_flws.flatten()
         return fx
 
-    def _check_compression(self, df, df_compressed):
+    def _check_compression(self, df: pd.DataFrame, df_compressed: pd.DataFrame):
         GMS, CMS, EMS = _market_desc(df).values()
         GMS_comp, CMS_comp, EMS_comp = _market_desc(df_compressed).values()
         flows = _get_nodes_net_flow(df).sort_index()
@@ -267,13 +279,21 @@ class Graph:
         assert np.isclose(pd.concat([flows, flows_comp], axis=1).fillna(0).diff(0).abs().max().max(), 0.0, atol=1e-6), f"Compression check failed on FLOWS. \n\n  Original flows = {flows.to_dict()} \nCompressed flows = {flows_comp.to_dict()}"
         assert np.isclose(CMS, CMS_comp, atol=1e-6), f"Compression check failed on CMS. \n\n   Original CMS = {CMS} \n Compressed CMS = {CMS_comp}"
 
-    def compress(self, type='bilateral',
-                 compression_p=2, verbose=True, _check_compr=True, progress=True):
+    def compress(self,
+                 type: str='bilateral',
+                 compression_p: int=2,
+                 verbose: bool=True,
+                 progress: bool = True,
+                 _check_compr: bool=True,
+                 ) -> pd.DataFrame:
         """
         Returns compressed network.
         Args:
             type: Type of compression. Either of ('NC-ED', 'NC-MAX', 'C', 'bilateral')
-            df:
+            compression_p: Compression order. Default is `p=1`.
+            verbose: If `True` (default) prints out compression efficiency and compression factor.
+            progress: Whether to display a progress bar. Default is True.
+            _check_compr: Whether to call Graph._check_compression. Default is True.
 
         Returns:
             Edge list (pandas.DataFrame) corresponding to compressed network.
@@ -312,7 +332,7 @@ class Graph:
 
 
 # Nodes net flow
-def compressed_network_bilateral(df):
+def compressed_network_bilateral(df: pd.DataFrame) -> pd.DataFrame:
     """
     Returns bilaterally compressed network
     Args:
@@ -337,7 +357,7 @@ def compressed_network_bilateral(df):
     return _flip_neg_amnts(rf)
 
 # For now assuming applied on fully connected subset
-def compressed_network_non_conservative(df):
+def compressed_network_non_conservative(df: pd.DataFrame) -> pd.DataFrame:
     """
     TODO: IN DOCS ADD https://github.com/sktime/sktime/issues/764
     Requirements of numba version and llvm
@@ -374,7 +394,7 @@ def compressed_network_non_conservative(df):
     return fx
 
 # For now assuming applied on fully connected subset
-def non_conservative_compression_ED(df):
+def non_conservative_compression_ED(df: pd.DataFrame) -> pd.DataFrame:
     nodes_flow = _get_nodes_net_flow(df)
 
     flows = nodes_flow.values
@@ -396,7 +416,7 @@ def non_conservative_compression_ED(df):
     fx['AMOUNT'] = cmprsd_flws.flatten()
     return fx
 
-def compressed_network_conservative(df):
+def compressed_network_conservative(df: pd.DataFrame) -> pd.DataFrame:
     df = compressed_network_bilateral(df)
     ...
 
