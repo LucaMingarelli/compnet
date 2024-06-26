@@ -8,9 +8,6 @@
 [//]: # ([![Downloads]&#40;https://static.pepy.tech/personalized-badge/compnet?period=total&units=international_system&left_color=grey&right_color=blue&left_text=Downloads&#41;]&#40;https://pepy.tech/project/compnet&#41;)
 
 
-
-[![version](https://img.shields.io/badge/version-0.0.1-success.svg)](#)
-
 # About
 
 ***compnet*** is a package for market compression of network data.
