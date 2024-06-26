@@ -144,17 +144,6 @@ sample_entangled = pd.DataFrame(
     columns=['SOURCE', 'TARGET' ,'AMOUNT'])
 
 
-### Compare page 64 here: https://www.esrb.europa.eu/pub/pdf/wp/esrbwp44.en.pdf
-import pandas as pd, numpy as np
-sample_derrico = pd.DataFrame([['Node A','Node B', 5],
-     ['Node B','Node C', 10],
-     ['Node C','Node A', 20],
-     ],columns=['SOURCE', 'TARGET' ,'AMOUNT'])
-from compnet.algo import Graph, compression_factor, _market_desc, compressed_network_conservative
-c_comp = Graph(sample_derrico).compress(type='c')
-ncmax_comp = Graph(sample_derrico).compress(type='nc-max')
-nced__comp = Graph(sample_derrico).compress(type='nc-ed')
 
 
 
-Graph(sample_derrico).compress(type='c')
