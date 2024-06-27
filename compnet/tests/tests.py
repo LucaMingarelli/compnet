@@ -4,7 +4,7 @@
 **Authors**: L. Mingarelli
 """
 import numpy as np, pylab as plt
-import pandas as pd, numpy as np, pylab as plt, networkx as nx
+import pandas as pd, networkx as nx
 import compnet as cn
 
 

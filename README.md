@@ -15,6 +15,13 @@
 It is based on xxx.
 
 
+# How to 
+
+Given the network with *graph* $G$, the 
+```python
+
+
+```
 
 
 

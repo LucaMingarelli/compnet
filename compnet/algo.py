@@ -29,7 +29,7 @@ def _get_nodes_net_flow(df, grouper=None):
     return df.groupby(grouper).apply(_get_group_nodes_net_flow) if grouper else _get_group_nodes_net_flow(df)
 
 def _compressed_market_size(f, grouper=None):
-  return _get_nodes_net_flow(f, grouper).clip(lower=0).sum()
+  return _get_nodes_net_flow(f, grouper).clip(lower=0).sum(1 if grouper else 0)
 
 def _market_desc(df, grouper=None):
     GMS = df.AMOUNT.abs().sum()
@@ -248,6 +248,15 @@ class Graph:
         return fx
 
     def _non_conservative_compression_ED(self, df: pd.DataFrame):
+        """
+
+        Args:
+            df:
+
+        Returns:
+
+        """
+
         nodes_flow = self.net_flow if df is None else _get_nodes_net_flow(df)
 
         flows = nodes_flow.values
