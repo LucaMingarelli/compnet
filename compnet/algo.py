@@ -149,10 +149,11 @@ class Graph:
     def describe(self, print_props: bool=True, ret: bool=False):
         df = self._original_network
         GMS, CMS, EMS = _market_desc(df, grouper=self.__GROUPER).values()
-        props = pd.Series({'Gross size': GMS,       # Gross Market Size
-                           'Compressed size': CMS,  # Compressed Market Size
-                           'Excess size': EMS       # Excess Market Size
-                           })
+        props = (pd.DataFrame if self.__GROUPER else pd.Series)({
+            'Gross size': GMS,  # Gross Market Size
+            'Compressed size': CMS,  # Compressed Market Size
+            'Excess size': EMS  # Excess Market Size
+        })
         self.GMS, self.CMS, self.EMS = GMS, CMS, EMS
         self.properties = props
         if print_props and not ret:
