@@ -37,6 +37,7 @@ def _market_desc(df, grouper=None):
            else df.AMOUNT.abs().sum())
     CMS = _compressed_market_size(df, grouper)
     EMS = GMS - CMS
+    GMS.index.name = CMS.index.name = EMS.index.name = None
     return {'GMS':GMS, 'CMS':CMS, 'EMS':EMS}
 
 @numba.njit(fastmath=True)
