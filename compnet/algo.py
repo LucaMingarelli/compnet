@@ -32,7 +32,9 @@ def _compressed_market_size(f, grouper=None):
   return _get_nodes_net_flow(f, grouper).clip(lower=0).sum(1 if grouper else 0)
 
 def _market_desc(df, grouper=None):
-    GMS = df.AMOUNT.abs().sum()
+    GMS = (df.groupby(grouper).apply(lambda g: g.AMOUNT.abs().sum())
+           if grouper
+           else df.AMOUNT.abs().sum())
     CMS = _compressed_market_size(df, grouper)
     EMS = GMS - CMS
     return {'GMS':GMS, 'CMS':CMS, 'EMS':EMS}
