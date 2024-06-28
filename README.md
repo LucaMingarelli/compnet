@@ -17,7 +17,7 @@ It is based on xxx.
 
 # How to get started
 
-Given the network with edge list `el`,
+Given a dataframe `el` containing a network's edge list,
 start by constructing the *graph* representation $G$ via the class `compnet.Graph`:
 ```python
 import pandas as pd
@@ -61,8 +61,47 @@ which returns the gross, compressed, and excess market sizes of the graph
 └─────────────────┴──────────┘
 ```
 
+At this point, it is possible to run a compression algorithm on `g`.
+Four options are currently available: `bilateral`, `c`, `nc-ed`, `nc-max`.
+
+#### Bilateral compression
+Bilateral compression compresses only edges between pairs of nodes.
+In our example above there exists two edges (trades) in opposite directions
+between node `A` and node `B`, which can be bilaterally compressed.
+
+Running
+```python
+g_bc = g.compress(type='bilateral')
+g_bc
+```
+
+returns the following bilaterally compressed graph object
+```text
+┌──────────┬──────────┬──────────┐
+│ SOURCE   │ TARGET   │   AMOUNT │
+├──────────┼──────────┼──────────┤
+│ A        │ B        │        5 │
+│ B        │ C        │       15 │
+└──────────┴──────────┴──────────┘
+```
+with compression efficiency and factor
+```text
+Compression Efficiency CE = 0.6666666666666667
+Compression Factor CF(p=2) = 0.7182819150904945
+```
 
 
+
+
+
+#### Conservative compression
+...
+
+#### Non-conservative ED compression
+...
+
+#### Maximal non-conservative compression
+...
 
 
 
