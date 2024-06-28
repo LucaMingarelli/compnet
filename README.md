@@ -85,10 +85,19 @@ For any two graphs one can further compute the **compression efficiency**
 
 $$CE = 1 - \frac{EMS_2}{EMS_1} $$
 
-with $EMS_j$ the *excess market size* of graph $j$,
-and the **compression factor of order p**
+with $EMS_j$ the *excess market size* of graph $j$.
+Moreover, the **compression ratio of order p** for two adjacency matrices $A$ and $A^c$ is defined as
 
-$$CF_p =  $$
+$$CR_p(A, A^c) = \frac{2}{N(N-1)}\frac{||L(A^c, N)||_p}{||L(A, N)||_p} $$
+
+with $||L(A, N)||_p$ the $p$-norm
+
+$$||L(A, N)||_p = \left(  \frac{2}{N(N-1)} \sum_i\sum_{j=i+1} |A_ij|^p \right)^{1/p}$$
+
+
+and the **compression factor of order p** for two adjacency matrices $A$ and $A^c$ as
+
+$$CF_p(A, A^c) = 1 - CR_p.$$
 
 Four options are currently available: `bilateral`, `c`, `nc-ed`, `nc-max`.
 
