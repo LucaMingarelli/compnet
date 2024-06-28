@@ -127,6 +127,7 @@ def compression_factor(df1, df2, p=2):
 
 class Graph:
     __SEP = '__<>__<>__'
+    _MAX_DISPLAY_LENGTH = 20
 
     def __init__(self, df: pd.DataFrame,
                  source: str='SOURCE', target: str='TARGET', amount: str='AMOUNT',
@@ -342,8 +343,9 @@ class Graph:
                  compression_p: int=2,
                  verbose: bool=True,
                  progress: bool = True,
+                 ret_edgelist: bool=False,
                  _check_compr: bool=True,
-                 ) -> pd.DataFrame:
+                 ):
         """
         Returns compressed network.
         Args:
@@ -351,10 +353,11 @@ class Graph:
             compression_p: Compression order. Default is `p=1`.
             verbose: If `True` (default) prints out compression efficiency and compression factor.
             progress: Whether to display a progress bar. Default is True.
+            ret_edgelist: If `False` (default) returns a compnet.Graph object. Otherwise only the compressed network's edge list.
             _check_compr: Whether to call Graph._check_compression. Default is True.
 
         Returns:
-            Edge list (pandas.DataFrame) corresponding to compressed network.
+            Graph object or edge list (pandas.DataFrame) corresponding to compressed network.
 
         """
         df = self._original_network
@@ -386,7 +389,34 @@ class Graph:
             comp_eff = compression_efficiency(df=df, df_compressed=df_compressed)
             print(f"Compression Efficiency CE = {comp_eff}")
             print(f"Compression Factor CF(p={compression_p}) = {comp_rt}")
-        return df_compressed.rename(columns={v:k for k,v in self._labels_map.items()})
+        df_compressed = df_compressed.rename(columns={v: k for k, v in self._labels_map.items()})
+        if ret_edgelist:
+            return df_compressed
+        else:
+            return Graph(df_compressed, **{v.lower() if isinstance(v, str) else v:k
+                                           for k,v in self._labels_map.items()
+                                           if v is not None})
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return (self._original_network == other._original_network).all().all()
+        else:
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __repr__(self):
+        MAX_LEN = self._MAX_DISPLAY_LENGTH or 20
+        is_long = len(self._original_network) > MAX_LEN
+        f = self._original_network.head(MAX_LEN).rename(columns={v:k for k,v in self._labels_map.items()
+                                                                 if k is not None})[self._labels]
+        if is_long:
+            f.loc[MAX_LEN, :] = ['⋮'] * f.shape[1]
+        f.index = ['']*len(f)
+        # return 'compnet.Graph object:\n' + f.to_string()
+        return 'compnet.Graph object:\n' + tabulate(f, headers='keys', tablefmt='simple_outline', showindex=False)
+
 
 
 # Nodes net flow
