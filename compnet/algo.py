@@ -181,7 +181,7 @@ class Graph:
         if ret:
             return self.properties
 
-    def __bilateral_compression(self, df: pd.DataFrame):
+    def _bilateral_compression(self, df: pd.DataFrame):
         """
         Returns bilaterally compressed network.
         Bilateral compression compresses exclusively multiple trades existing between two nodes.
@@ -206,11 +206,14 @@ class Graph:
                        axis=1).drop(columns='index')
         return _flip_neg_amnts(rf)
 
-    def __conservative_compression(self, df: pd.DataFrame):
+    def _conservative_compression(self, df: pd.DataFrame):
         """
         Returns conservatively compressed network.
         Conservative compression only reduces or removes existing edges (trades)
         without however adding new ones.
+        The resulting conservatively compressed graph is a sub-graph of the original graph.
+        Moreover, the resulting conservatively compressed graph is always a directed
+        acyclic graph (DAG).
         Args:
             df: pandas.DataFrame containing three columns SOURCE, TARGET, AMOUNT
 
@@ -218,7 +221,7 @@ class Graph:
             pandas.DataFrame containing edge list of conservatively compressed network
 
         """
-        f = self.__bilateral_compression(_flip_neg_amnts(df))
+        f = self._bilateral_compression(_flip_neg_amnts(df))
         edgs = f.set_index(f.SOURCE + self.__SEP + f.TARGET)[['AMOUNT']].T
         @lru_cache()
         def loop2edg(tpl):
@@ -247,7 +250,7 @@ class Graph:
         edgs['AMOUNT'] = amnt
         return edgs
 
-    def __non_conservative_compression_MAX(self, df: pd.DataFrame):
+    def _non_conservative_compression_MAX(self, df: pd.DataFrame):
         """
         Returns non-conservatively compressed network.
         Non-conservative compression not only reduces or removes existing edges (trades)
@@ -364,11 +367,11 @@ class Graph:
         if type.lower() == 'nc-ed':
             compressor = self._non_conservative_compression_ED
         elif type.lower() == 'nc-max':
-            compressor = self.__non_conservative_compression_MAX
+            compressor = self._non_conservative_compression_MAX
         elif type.lower() == 'c':
-            compressor = self.__conservative_compression
+            compressor = self._conservative_compression
         elif type.lower() == 'bilateral':
-            compressor = self.__bilateral_compression
+            compressor = self._bilateral_compression
         else:
             raise Exception(f'Type {type} not recognised: please input either of NC-ED, NC-MAX, C, or bilateral.')
 
