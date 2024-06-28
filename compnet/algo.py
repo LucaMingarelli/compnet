@@ -9,6 +9,7 @@ import numba, networkx as nx, warnings
 from tabulate import tabulate
 from tqdm import tqdm
 from functools import lru_cache
+from typing import Union
 
 __SEP = '__<>__<>__'
 
@@ -128,17 +129,18 @@ class Graph:
 
     def __init__(self, df: pd.DataFrame,
                  source: str='SOURCE', target: str='TARGET', amount: str='AMOUNT',
-                 grouper=None):
+                 grouper: str=None):
         """
+        Initialises compnet.Group object.
 
         Args:
-            df:
-            source:
-            target:
-            amount:
-            grouper:
+            df: An edge list containing at least a source, target, and amount columns.
+            source: Name of the column corresponding to source nodes. Default is 'SOURCE'.
+            target: Name of the column corresponding to target nodes. Default is 'TARGET'.
+            amount: Name of the column corresponding to weights / amounts of corresponding source-target edge. Default is 'AMOUNT'.
+            grouper: If an additional dimension exists (e.g. a date dimension), passing the corresponding column name will result in the creation of a graph for each category in the grouper column.
         """
-
+        self.GMS = self.CMS = self.EMS = self.properties = None
         self._labels = [source, target, amount]+([grouper] if grouper else [])
         self.__GROUPER = 'GROUPER' if grouper else None
         self._labels_map = {source: 'SOURCE', target: 'TARGET', amount: 'AMOUNT', grouper:self.__GROUPER}
@@ -146,21 +148,36 @@ class Graph:
         self.net_flow = _get_nodes_net_flow(self._original_network, grouper=self.__GROUPER)
         self.describe(print_props=False, ret=False)  # Builds GMS, CMS, EMS, and properties
 
-    def describe(self, print_props: bool=True, ret: bool=False):
+    def describe(self, print_props: bool=True, ret: bool=False, recompute: bool=False):
+        """
+        Computes and prints / returns the graph's Gross, Compressed, and Excess market sizes.
+        Args:
+            print_props: If `True` (default) prints
+            ret: If `True` returns
+            recompute: If `True` forces re-computation. Otherwise, computes only at Graph's initialisation.
+
+        Returns:
+            If `ret==True`, pandas.Series if grouper is None, else pandas.DataFrame.
+        """
         df = self._original_network
-        GMS, CMS, EMS = _market_desc(df, grouper=self.__GROUPER).values()
-        props = (pd.DataFrame if self.__GROUPER else pd.Series)({
-            'Gross size': GMS,  # Gross Market Size
-            'Compressed size': CMS,  # Compressed Market Size
-            'Excess size': EMS  # Excess Market Size
-        })
-        self.GMS, self.CMS, self.EMS = GMS, CMS, EMS
-        self.properties = props
+        if (self.GMS is None
+                or self.CMS is None
+                or self.EMS is None
+                or self.properties is None
+                or recompute):
+            GMS, CMS, EMS = _market_desc(df, grouper=self.__GROUPER).values()
+            props = (pd.DataFrame if self.__GROUPER else pd.Series)({
+                'Gross size': GMS,  # Gross Market Size
+                'Compressed size': CMS,  # Compressed Market Size
+                'Excess size': EMS  # Excess Market Size
+            })
+            self.GMS, self.CMS, self.EMS = GMS, CMS, EMS
+            self.properties = props
         if print_props and not ret:
-            print(tabulate(props.reset_index().rename(columns={'index':'',0:'AMOUNT'}),
+            print(tabulate(self.properties.reset_index().rename(columns={'index':'',0:'AMOUNT'}),
                            headers='keys', tablefmt='simple_outline', showindex=False))
         if ret:
-            return props
+            return self.properties
 
     def __bilateral_compression(self, df: pd.DataFrame):
         """
@@ -187,6 +204,15 @@ class Graph:
         return _flip_neg_amnts(rf)
 
     def __conservative_compression(self, df: pd.DataFrame):
+        """
+        Returns conservatively compressed network.
+        Args:
+            df: pandas.DataFrame containing three columns SOURCE, TARGET, AMOUNT
+
+        Returns:
+            pandas.DataFrame containing edge list of conservatively compressed network
+
+        """
         f = self.__bilateral_compression(_flip_neg_amnts(df))
         edgs = f.set_index(f.SOURCE + self.__SEP + f.TARGET)[['AMOUNT']].T
         @lru_cache()
@@ -239,7 +265,7 @@ class Graph:
 
         EL, pairs = _noncons_compr_max_min(ordered_flows=ordered_flows,
                                            max_links=len(nodes)
-                                           # TODO - prove the following Theorem: for any compressed graph G=(N, E) one has |E|<=|N| (number of edges is at most the number of nodes)
+                                           # TODO - prove the following Theorem: for any FULLY compressed graph G=(N, E) one has |E|<=|N| (number of edges is at most the number of nodes)
                                            )
 
         fltr = EL != 0
@@ -253,11 +279,12 @@ class Graph:
 
     def _non_conservative_compression_ED(self, df: pd.DataFrame):
         """
-
+        Returns non-conservative-ED compressed network.
         Args:
-            df:
+            df: pandas.DataFrame containing three columns SOURCE, TARGET, AMOUNT
 
         Returns:
+            pandas.DataFrame containing edge list of non-conservative-ED compressed network
 
         """
 
@@ -283,11 +310,20 @@ class Graph:
         fx['AMOUNT'] = cmprsd_flws.flatten()
         return fx
 
-    def _check_compression(self, df: pd.DataFrame, df_compressed: pd.DataFrame):
-        GMS, CMS, EMS = _market_desc(df).values()
-        GMS_comp, CMS_comp, EMS_comp = _market_desc(df_compressed).values()
+    def _check_compression(self, df: pd.DataFrame, df_compressed: pd.DataFrame, grouper: str=None):
+        """
+        TODO: test with non-null grouper!
+        Args:
+            df:
+            df_compressed:
+
+        Returns:
+
+        """
+        GMS, CMS, EMS = _market_desc(df, grouper).values()
+        GMS_comp, CMS_comp, EMS_comp = _market_desc(df_compressed, grouper).values()
         flows = _get_nodes_net_flow(df).sort_index()
-        flows_comp = _get_nodes_net_flow(df_compressed).sort_index()
+        flows_comp = _get_nodes_net_flow(df_compressed, grouper).sort_index()
         assert EMS>EMS_comp or np.isclose(abs(EMS-EMS_comp), 0.0, atol=1e-6), f"Compression check failed on EMS. \n\n   Original EMS = {EMS} \n Compressed EMS = {EMS_comp}"
         assert np.isclose(pd.concat([flows, flows_comp], axis=1).fillna(0).diff(0).abs().max().max(), 0.0, atol=1e-6), f"Compression check failed on FLOWS. \n\n  Original flows = {flows.to_dict()} \nCompressed flows = {flows_comp.to_dict()}"
         assert np.isclose(CMS, CMS_comp, atol=1e-6), f"Compression check failed on CMS. \n\n   Original CMS = {CMS} \n Compressed CMS = {CMS_comp}"

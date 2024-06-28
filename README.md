@@ -17,11 +17,40 @@ It is based on xxx.
 
 # How to 
 
-Given the network with *graph* $G$, the 
+Given the network with edge list `el`,
+start by constructing the *graph* representation $G$ via the class `compnet.Graph`:
 ```python
+import pandas as pd
+import compnet
 
+el = pd.DataFrame([['A','B', 10],
+                   ['B','C', 15],
+                   ['B','A', 5],
+                   ],
+                  columns=['SOURCE', 'TARGET' ,'AMOUNT'])
+g = compnet.Graph(el)
 
 ```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
