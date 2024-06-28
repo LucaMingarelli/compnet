@@ -67,12 +67,15 @@ the gross, compressed, and excess market sizes are respectively defined as
 $$
 GMS = \sum_{i}\sum_{j} A_{ij}
 $$
+
 $$
 CMS = \frac{1}{2}\sum_i\left|\sum_j \left(A_{ij} - A_{ji}\right) \right|
 $$
+
 $$
 EMS = GMS - CMS
 $$
+
 Notice in particular that $\sum_j \left(A_{ij} - A_{ji}\right)$ represents the net position of node $i$.
 
 ----
