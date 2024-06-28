@@ -61,7 +61,7 @@ which returns the gross, compressed, and excess market sizes of the graph
 └─────────────────┴──────────┘
 ```
 
-Denoting by $A$ the weighted adjacency matrix of the network with elements $a_{ij}$, 
+Denoting by $A$ the weighted adjacency matrix of the network with elements $A_{ij}$, 
 the gross, compressed, and excess market sizes are respectively defined as
 
 $$
