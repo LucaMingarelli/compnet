@@ -15,7 +15,7 @@
 It is based on xxx.
 
 
-# How to 
+# How to get started
 
 Given the network with edge list `el`,
 start by constructing the *graph* representation $G$ via the class `compnet.Graph`:
@@ -29,10 +29,46 @@ el = pd.DataFrame([['A','B', 10],
                    ],
                   columns=['SOURCE', 'TARGET' ,'AMOUNT'])
 g = compnet.Graph(el)
+```
 
+If the dataframe does not contain columns named `'SOURCE'`, `'TARGET'`, and `'AMOUNT'`,
+the corresponding column names should be passed as well to `compnet.Graph` 
+via the parameters `source`, `target`, and `amount`.
+
+For example:
+```python
+
+el = pd.DataFrame([['A','B', 10],
+                   ['B','C', 15],
+                   ['B','A', 5],
+                   ],
+                  columns=['bank', 'counterpart' ,'notional'])
+g = compnet.Graph(el, source='bank', target='counterpart', amount='notional')
+```
+
+Once the graph object `g` is created, it is possible to quickly inspect its properties as
+```python
+g.describe()
+```
+which returns the gross, compressed, and excess market sizes of the graph
+```text
+┌─────────────────┬──────────┐
+│                 │   AMOUNT │
+├─────────────────┼──────────┤
+│ Gross size      │       30 │
+│ Compressed size │       15 │
+│ Excess size     │       15 │
+└─────────────────┴──────────┘
 ```
 
 
+
+
+
+
+
+## Grouping along additional dimensions
+If an additional dimension exists...
 
 
 

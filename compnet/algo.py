@@ -38,7 +38,8 @@ def _market_desc(df, grouper=None):
            else df.AMOUNT.abs().sum())
     CMS = _compressed_market_size(df, grouper)
     EMS = GMS - CMS
-    GMS.index.name = CMS.index.name = EMS.index.name = None
+    if grouper:
+        GMS.index.name = CMS.index.name = EMS.index.name = None
     return {'GMS':GMS, 'CMS':CMS, 'EMS':EMS}
 
 @numba.njit(fastmath=True)
@@ -181,7 +182,8 @@ class Graph:
 
     def __bilateral_compression(self, df: pd.DataFrame):
         """
-        Returns bilaterally compressed network
+        Returns bilaterally compressed network.
+        Bilateral compression compresses exclusively multiple trades existing between two nodes.
         Args:
             df: pandas.DataFrame containing three columns SOURCE, TARGET, AMOUNT
 
@@ -206,6 +208,8 @@ class Graph:
     def __conservative_compression(self, df: pd.DataFrame):
         """
         Returns conservatively compressed network.
+        Conservative compression only reduces or removes existing edges (trades)
+        without however adding new ones.
         Args:
             df: pandas.DataFrame containing three columns SOURCE, TARGET, AMOUNT
 
@@ -244,6 +248,11 @@ class Graph:
 
     def __non_conservative_compression_MAX(self, df: pd.DataFrame):
         """
+        Returns non-conservatively compressed network.
+        Non-conservative compression not only reduces or removes existing edges (trades)
+        but can also introduce new ones.
+
+
         TODO: IN DOCS ADD https://github.com/sktime/sktime/issues/764
         Requirements of numba version and llvm
         Args:
