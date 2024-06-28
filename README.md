@@ -61,7 +61,31 @@ which returns the gross, compressed, and excess market sizes of the graph
 └─────────────────┴──────────┘
 ```
 
-At this point, it is possible to run a compression algorithm on `g`.
+Denoting by $A$ the weighted adjacency matrix of the network with elements $a_{ij}$, 
+the gross, compressed, and excess market sizes are respectively defined as
+
+$$
+GMS = \sum_{i}\sum_{j} A_{ij}
+$$
+$$
+CMS = \frac{1}{2}\sum_i\left|\sum_j A_{ij} - A_{ji} \right|
+$$
+$$
+EMS = GMS - CMS
+$$
+
+----
+
+At this point, it is possible to run a compression algorithm on `g` via the method `Graph.compress`.
+For any two graphs one can further compute the **compression efficiency**
+
+$$CE = 1 - \frac{EMS_2}{EMS_1} $$
+
+with $EMS_j$ the *excess market size* of graph $j$,
+and the **compression factor of order p**
+
+$$CF_p =  $$
+
 Four options are currently available: `bilateral`, `c`, `nc-ed`, `nc-max`.
 
 #### Bilateral compression
