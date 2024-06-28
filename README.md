@@ -114,6 +114,7 @@ g_bc
 
 returns the following bilaterally compressed graph object
 ```text
+compnet.Graph object:
 ┌──────────┬──────────┬──────────┐
 │ SOURCE   │ TARGET   │   AMOUNT │
 ├──────────┼──────────┼──────────┤
@@ -123,8 +124,8 @@ returns the following bilaterally compressed graph object
 ```
 with compression efficiency and factor
 ```text
-Compression Efficiency CE = 0.6666666666666667
-Compression Factor CF(p=2) = 0.7182819150904945
+Compression Efficiency CE = 0.667
+Compression Factor CF(p=2) = 0.718
 ```
 
 
@@ -132,13 +133,63 @@ Compression Factor CF(p=2) = 0.7182819150904945
 
 
 #### Conservative compression
-...
+Under conservative compression onlyexisting edges (trades) are reduced or removed. 
+No new edge is added.
+
+The resulting conservatively compressed graph is always a sub-graph of the original graph.
+Moreover, the resulting conservatively compressed graph is always a directed acyclic graph (DAG).
+
+The conservatively compressed graph can be obtained as 
+```python
+g_cc = g.compress(type='c')
+g_cc
+```
+
+which in our example above returns
+```text
+compnet.Graph object:
+┌──────────┬──────────┬──────────┐
+│ SOURCE   │ TARGET   │   AMOUNT │
+├──────────┼──────────┼──────────┤
+│ A        │ B        │        5 │
+│ B        │ C        │       15 │
+└──────────┴──────────┴──────────┘
+```
+with compression efficiency and factor
+```text
+Compression Efficiency CE = 0.667
+Compression Factor CF(p=2) = 0.718
+```
+
 
 #### Non-conservative ED compression
 ...
 
 #### Maximal non-conservative compression
 ...
+
+
+The non-conservative maximally compressed graph can be obtained as 
+```python
+g_cc = g.compress(type='nc-max')
+g_cc
+```
+
+which in our example above returns
+```text
+compnet.Graph object:
+┌──────────┬──────────┬──────────┐
+│ SOURCE   │ TARGET   │   AMOUNT │
+├──────────┼──────────┼──────────┤
+│ B        │ C        │       10 │
+│ A        │ C        │        5 │
+└──────────┴──────────┴──────────┘
+```
+with compression efficiency and factor
+```text
+Compression Efficiency CE = 1.0
+Compression Factor CF(p=2) = 0.801
+```
 
 
 
