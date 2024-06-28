@@ -92,7 +92,7 @@ $$CR_p(A, A^c) = \frac{2}{N(N-1)}\frac{||L(A^c, N)||_p}{||L(A, N)||_p} $$
 
 with $N$ the number of nodes and $||L(A, N)||_p$ the $p$-norm of xxx
 
-$$||L(A, N)||_p = \left(  \frac{2}{N(N-1)} \sum_i \sum\_{j=i+1} |A_ij|^p \right)^{1/p}$$
+$$||L(A, N)||_p = \left(  \frac{2}{N(N-1)} \sum_i \sum\_{j=i+1} |A\_{ij}|^p \right)^{1/p}$$
 
 
 and the **compression factor of order p** for two adjacency matrices $A$ and $A^c$ as
