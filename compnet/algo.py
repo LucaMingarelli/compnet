@@ -146,9 +146,10 @@ class Graph:
         self._labels = [source, target, amount]+([grouper] if grouper else [])
         self.__GROUPER = 'GROUPER' if grouper else None
         self._labels_map = {source: 'SOURCE', target: 'TARGET', amount: 'AMOUNT', grouper:self.__GROUPER}
-        self._original_network = df[self._labels].rename(columns=self._labels_map)
-        self.net_flow = _get_nodes_net_flow(self._original_network, grouper=self.__GROUPER)
+        self.edge_list = df[self._labels].rename(columns=self._labels_map)
+        self.net_flow = _get_nodes_net_flow(self.edge_list, grouper=self.__GROUPER)
         self.describe(print_props=False, ret=False)  # Builds GMS, CMS, EMS, and properties
+
 
     def describe(self, print_props: bool=True, ret: bool=False, recompute: bool=False):
         """
@@ -161,7 +162,7 @@ class Graph:
         Returns:
             If `ret==True`, pandas.Series if grouper is None, else pandas.DataFrame.
         """
-        df = self._original_network
+        df = self.edge_list
         if (self.GMS is None
                 or self.CMS is None
                 or self.EMS is None
@@ -363,7 +364,7 @@ class Graph:
             Graph object or edge list (pandas.DataFrame) corresponding to compressed network.
 
         """
-        df = self._original_network
+        df = self.edge_list
         if type.lower() == 'nc-ed':
             compressor = self._non_conservative_compression_ED
         elif type.lower() == 'nc-max':
@@ -402,7 +403,7 @@ class Graph:
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
-            return (self._original_network == other._original_network).all().all()
+            return (self.edge_list == other.edge_list).all().all()
         else:
             return False
 
@@ -411,9 +412,9 @@ class Graph:
 
     def __repr__(self):
         MAX_LEN = self._MAX_DISPLAY_LENGTH or 20
-        is_long = len(self._original_network) > MAX_LEN
-        f = self._original_network.head(MAX_LEN).rename(columns={v:k for k,v in self._labels_map.items()
-                                                                 if k is not None})[self._labels]
+        is_long = len(self.edge_list) > MAX_LEN
+        f = self.edge_list.head(MAX_LEN).rename(columns={v:k for k,v in self._labels_map.items()
+                                                         if k is not None})[self._labels]
         if is_long:
             f.loc[MAX_LEN, :] = ['⋮'] * f.shape[1]
         f.index = ['']*len(f)
