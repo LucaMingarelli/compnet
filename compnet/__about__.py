@@ -4,7 +4,7 @@
 **Authors**: L. Mingarelli
 """
 
-__about__ = "A library for sampling correlated binary variates."
+__about__ = "A package for market compression of network data."
 __version__= '0.0.2'
 __author__ = 'Luca Mingarelli'
 __email__ = "lucamingarelli@me.com"
