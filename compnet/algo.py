@@ -150,6 +150,17 @@ class Graph:
         self.net_flow = _get_nodes_net_flow(self.edge_list, grouper=self.__GROUPER)
         self.describe(print_props=False, ret=False)  # Builds GMS, CMS, EMS, and properties
 
+    @property
+    def SOURCE(self):
+        return self.edge_list['SOURCE']
+
+    @property
+    def TARGET(self):
+        return self.edge_list['TARGET']
+
+    @property
+    def AMOUNT(self):
+        return self.edge_list['AMOUNT']
 
     def describe(self, print_props: bool=True, ret: bool=False, recompute: bool=False):
         """

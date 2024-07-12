@@ -39,7 +39,7 @@ class TestCompression:
         bil_compr = net.compress(type='bilateral')
 
         assert (bil_compr.AMOUNT == [5, 15]).all()
-        assert (cn.Graph(bil_compr).net_flow == cn.Graph(sample_bilateral).net_flow).all()
+        assert (bil_compr.net_flow == cn.Graph(sample_bilateral).net_flow).all()
 
         assert (cn.Graph(sample_noncons2).compress(type='bilateral').AMOUNT == [10, 5, 20]).all()
 
@@ -47,7 +47,7 @@ class TestCompression:
         dsc = cn.Graph(sample_noncons4).describe(ret=True)
         ncedc = cn.Graph(sample_noncons4).compress(type='NC-ED')
 
-        cmpr_dsc = cn.Graph(ncedc).describe(ret=True)
+        cmpr_dsc = ncedc.describe(ret=True)
         # Check Null Excess
         assert cmpr_dsc['Excess size'] == 0
         # Check Conserved Compressed size
@@ -57,7 +57,7 @@ class TestCompression:
         dsc = cn.Graph(sample_noncons4).describe(ret=True)
         ncmaxc = cn.Graph(sample_noncons4).compress(type='NC-MAX')
 
-        cmpr_dsc = cn.Graph(ncmaxc).describe(ret=True)
+        cmpr_dsc = ncmaxc.describe(ret=True)
         # Check Null Excess
         assert cmpr_dsc['Excess size'] == 0
         # Check Conserved Compressed size

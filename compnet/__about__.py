@@ -5,7 +5,7 @@
 """
 
 __about__ = "A library for sampling correlated binary variates."
-__version__= '0.0.1'
+__version__= '0.0.2'
 __author__ = 'Luca Mingarelli'
 __email__ = "lucamingarelli@me.com"
 __url__ = "https://github.com/LucaMingarelli/compnet"
