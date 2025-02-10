@@ -158,7 +158,7 @@ class Graph:
         self._labels_map = {source: 'SOURCE', target: 'TARGET', amount: 'AMOUNT', grouper:self.__GROUPER}
         self.edge_list = df[self._labels].rename(columns=self._labels_map)
 
-        if any(set(_get_all_nodes(self.edge_list)) - set(_get_all_nodes(g)) for _, g in self.edge_list.groupby(self.__GROUPER)):
+        if self.__GROUPER and any(set(_get_all_nodes(self.edge_list)) - set(_get_all_nodes(g)) for _, g in self.edge_list.groupby(self.__GROUPER)):
             warnings.warn(f"\n\nSome nodes (SOURCE `{source}` or TARGET `{target}`) are missing from some groups (GROUPER `{grouper}`).\n"
                           "These will be filled with zeros.\n")
 
