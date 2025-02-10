@@ -21,21 +21,23 @@ def _flip_neg_amnts(df):
     f[f.AMOUNT<0] = f_flip
     return f
 
+def _get_all_nodes(df):
+    return sorted(set(df['SOURCE']).union(df['TARGET']))
+
 def _get_nodes_net_flow(df, grouper=None):
-    def _get_all_nodes(df):
-        return sorted(set(df['SOURCE']).union(df['TARGET']))
+    all_df_nodes = _get_all_nodes(df)
     def _get_group_nodes_net_flow(f):
         group_nodes_net_flow = pd.concat([f.groupby('SOURCE').AMOUNT.sum(),
                           f.groupby('TARGET').AMOUNT.sum()],
                           axis=1).fillna(0).T.diff().iloc[-1, :]
-        if set(_get_all_nodes(f))!=set(_get_all_nodes(df)):
-            warnings.warn("\n\nSome nodes (SOURCE or TARGET) are missing from some groups (GROUPER).\n"
-                          "These will be filled with zeros.\n")
-            return group_nodes_net_flow.reindex(_get_all_nodes(df), fill_value=0).sort_index()
+        if set(_get_all_nodes(f))!=set(all_df_nodes):
+            return group_nodes_net_flow.reindex(all_df_nodes, fill_value=0).sort_index()
         else:
             return group_nodes_net_flow.sort_index()
 
-    return df.groupby(grouper).apply(_get_group_nodes_net_flow) if grouper else _get_group_nodes_net_flow(df)
+    nodes_net_flow = df.groupby(grouper).apply(_get_group_nodes_net_flow) if grouper else _get_group_nodes_net_flow(df)
+    _WARNING_MISSING_NODES = True # Re-enable warnings (this prevents printing warnings for each group)
+    return nodes_net_flow
 
 def _compressed_market_size(f, grouper=None):
   return _get_nodes_net_flow(f, grouper).clip(lower=0).sum(1 if grouper else 0)
@@ -155,6 +157,11 @@ class Graph:
         self.__GROUPER = 'GROUPER' if grouper else None
         self._labels_map = {source: 'SOURCE', target: 'TARGET', amount: 'AMOUNT', grouper:self.__GROUPER}
         self.edge_list = df[self._labels].rename(columns=self._labels_map)
+
+        if any(set(_get_all_nodes(self.edge_list)) - set(_get_all_nodes(g)) for _, g in self.edge_list.groupby(self.__GROUPER)):
+            warnings.warn(f"\n\nSome nodes (SOURCE `{source}` or TARGET `{target}`) are missing from some groups (GROUPER `{grouper}`).\n"
+                          "These will be filled with zeros.\n")
+
         self.net_flow = _get_nodes_net_flow(self.edge_list, grouper=self.__GROUPER)
         self.describe(print_props=False, ret=False)  # Builds GMS, CMS, EMS, and properties
 
@@ -433,7 +440,7 @@ class Graph:
         MAX_LEN = self._MAX_DISPLAY_LENGTH or 20
         is_long = len(self.edge_list) > MAX_LEN
         f = self.edge_list.head(MAX_LEN).rename(columns={v:k for k,v in self._labels_map.items()
-                                                         if k is not None})[self._labels]
+                                                         if k is not None})[self._labels].astype(str)
         if is_long:
             f.loc[MAX_LEN, :] = ['⋮'] * f.shape[1]
         f.index = ['']*len(f)
