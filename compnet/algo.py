@@ -22,10 +22,18 @@ def _flip_neg_amnts(df):
     return f
 
 def _get_nodes_net_flow(df, grouper=None):
+    def _get_all_nodes(df):
+        return sorted(set(df['SOURCE']).union(df['TARGET']))
     def _get_group_nodes_net_flow(f):
-        return pd.concat([f.groupby('SOURCE').AMOUNT.sum(),
+        group_nodes_net_flow = pd.concat([f.groupby('SOURCE').AMOUNT.sum(),
                           f.groupby('TARGET').AMOUNT.sum()],
-                          axis=1).fillna(0).T.diff().iloc[-1, :].sort_index()
+                          axis=1).fillna(0).T.diff().iloc[-1, :]
+        if set(_get_all_nodes(f))!=set(_get_all_nodes(df)):
+            warnings.warn("\n\nSome nodes (SOURCE or TARGET) are missing from some groups (GROUPER).\n"
+                          "These will be filled with zeros.\n")
+            return group_nodes_net_flow.reindex(_get_all_nodes(df), fill_value=0).sort_index()
+        else:
+            return group_nodes_net_flow.sort_index()
 
     return df.groupby(grouper).apply(_get_group_nodes_net_flow) if grouper else _get_group_nodes_net_flow(df)
 
