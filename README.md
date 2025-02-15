@@ -376,7 +376,7 @@ As before, this data is also accessible as a `pandas.DataFrame` via the attribut
 
 
 
-# Authors
+# Author
 Luca Mingarelli, 2022
 
 [![Python](https://img.shields.io/static/v1?label=made%20with&message=Python&color=blue&style=for-the-badge&logo=Python&logoColor=white)](#)
