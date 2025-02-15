@@ -105,7 +105,7 @@ def compression_factor(df1, df2, p=2):
     where
 
     .. math::
-        ||L(C, N)||_p = (2 / N(N-1) \sum_i\sum_{j=i+1} |C_ij|^p )^{1/p}
+        ||L(C, N)||_p = (1 / N(N-1) \sum_{i≠j} |C_ij|^p )^{1/p}
 
     Notice that in the limit we have TODO: NOT TRUE! The following applies only to bilateral (maybe to conservative as well)
 
@@ -133,8 +133,7 @@ def compression_factor(df1, df2, p=2):
         N = len(set(df1[['SOURCE', 'TARGET']].values.flatten()))
         Lp1 = (df1.AMOUNT.abs()**p).sum() ** (1/p) # * (2 / (N*(N-1)))**(1/p)
         Lp2 = (df2.AMOUNT.abs()**p).sum() ** (1/p) # * (2 / (N*(N-1)))**(1/p)
-        CR = 2 / (N*(N-1)) * (Lp2 / Lp1)
-        # CR = Lp2 / Lp1
+        CR = Lp2 / Lp1
 
     CF = 1 - CR
     return CF

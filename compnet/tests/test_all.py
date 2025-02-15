@@ -120,7 +120,7 @@ class TestCompression:
         ps = np.array(list(np.linspace(1, 20, 200))+[50])
         compressed1 = cn.Graph(sample_noncons4).compress(type='nc-ed')
         compressed2 = cn.Graph(sample_noncons4).compress(type='nc-max')
-        cfs1 = [cn.compression_factor(sample_noncons4, compressed1, p=p)
+        cfs1 = [cn.compression_factor(df1=sample_noncons4, df2=compressed1, p=p)
                 for p in ps]
         cfs2 = [cn.compression_factor(sample_noncons4, compressed2, p=p)
                 for p in ps]

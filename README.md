@@ -90,7 +90,7 @@ $$CE = 1 - \frac{EMS_2}{EMS_1} $$
 with $EMS_j$ the *excess market size* of graph $j$.
 Moreover, the **compression ratio of order p** for two adjacency matrices $A$ and $A^c$ is defined as
 
-$$CR_p(A, A^c) = \frac{2}{N(N-1)}\frac{||L(A^c, N)||_p}{||L(A, N)||_p} $$
+$$CR_p(A, A^c) = \frac{||L(A^c, N)||_p}{||L(A, N)||_p} $$
 
 with $N$ the number of nodes and $||L(A, N)||_p$ the $p$-norm of the average absolute weight:
 
