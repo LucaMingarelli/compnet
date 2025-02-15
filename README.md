@@ -103,7 +103,7 @@ the network:
 it quantifies, on average, 
 how *strongly* nodes are connected.
 If considering an unweighted network 
-(i.e. $A_{ij}\in \{0,1\}$),
+(i.e. $A_{ij}\in /{0,1/}$),
 then $L(A, N)$ corresponds to 
 the density of the network, 
 that is the fraction of possible links that are actually present.
