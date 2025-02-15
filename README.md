@@ -92,12 +92,29 @@ Moreover, the **compression ratio of order p** for two adjacency matrices $A$ an
 
 $$CR_p(A, A^c) = \frac{2}{N(N-1)}\frac{||L(A^c, N)||_p}{||L(A, N)||_p} $$
 
-with $N$ the number of nodes and $||L(A, N)||_p$ the $p$-norm of xxx
+with $N$ the number of nodes and $||L(A, N)||_p$ the $p$-norm of the average absolute weight:
 
-$$||L(A, N)||_p = \left(  \frac{2}{N(N-1)} \sum_i \sum\_{j=i+1} |A\_{ij}|^p \right)^{1/p}$$
+$$||L(A, N)||_p = \left(  \frac{1}{N(N-1)} \sum\_{i\ne j} |A\_{ij}|^p \right)^{1/p}$$
 
 
-and the **compression factor of order p** for two adjacency matrices $A$ and $A^c$ as
+Notice that $L(A, N)=\frac{1}{N(N-1)} \sum\_{i\ne j} |A\_{ij}|$ 
+is a measure of the overall connectivity of 
+the network: 
+it quantifies, on average, 
+how *strongly* nodes are connected.
+If considering an unweighted network 
+(i.e. $A_{ij}\in \{0,1\}$),
+then $L(A, N)$ corresponds to 
+the density of the network, 
+that is the fraction of possible links that are actually present.
+In the case of weighted networks instead, 
+$L(A, N)$ represents the average strength 
+or intensity of the connections, 
+taking into account the magnitude of each weight.
+
+
+The **compression factor of order p** 
+for two adjacency matrices $A$ and $A^c$ is then defined as
 
 $$CF_p(A, A^c) = 1 - CR_p.$$
 
@@ -201,7 +218,8 @@ Compression Factor CF(p=2) = 0.801
 When considering networks with additional dimensions or layers, 
 such a time, collateral type, market sub-segments, etc. 
 `compnet.Graph` allows to describe and perform compression on each such layer independently
-via the parameter `grouper`.
+via the parameter `grouper`, taking either a single field (as `str`) 
+or multiple ones (as `list`) if grouping along multiple dimensions is necessary.
 
 For instance, one might consider the market described by the tensor $A^\tau$
 with elements $A^\tau_{ij}$, where $\tau$ indexes time with daily frequency.

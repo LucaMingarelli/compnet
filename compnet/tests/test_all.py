@@ -22,10 +22,9 @@ sample_derrico = pd.DataFrame([['Node A','Node B', 5],
 
 class Test_DErrico:
     def test_conservative_compression(self):
-        c_comp = cn.Graph(sample_derrico).compress(type='c')
+        c_comp = cn.Graph(df=sample_derrico).compress(type='c')
         ncmax_comp = cn.Graph(sample_derrico).compress(type='nc-max')
         nced__comp = cn.Graph(sample_derrico).compress(type='nc-ed')
-
 
 
 class TestCompression:
@@ -33,6 +32,51 @@ class TestCompression:
     def test_describe(self):
         cn.Graph(sample_bilateral).describe()
         assert (cn.Graph(sample_bilateral).describe(ret=True) == [30, 15, 15]).all()
+
+    def test_with_grouper(self):
+        # One grouper
+        el = pd.DataFrame([['A', 'B', 15, '2025-02-10'],
+                           ['B', 'C', 15, '2025-02-10'],
+                           ['B', 'A', 5, '2025-02-10'],
+                           ['A', 'B', 20, '2025-02-11'],
+                           ['B', 'C', 15, '2025-02-11'],
+                           ['B', 'A', 6, '2025-02-11'],
+                           ['A', 'B', 25, '2025-02-12'],
+                           ['B', 'C', 15, '2025-02-12'],
+                           ['B', 'A', 7, '2025-02-12'],
+                           ],
+                          columns=['lender', 'borrower', 'amount', 'date'])
+        g = cn.Graph(el, source='lender', target='borrower', amount='amount', grouper='date')
+
+        c_comp = g.compress(type='c')
+        ncmax_comp = g.compress(type='nc-max')
+        nced__comp = g.compress(type='nc-ed')
+
+        # Multiple groupers
+        el = pd.DataFrame([['A', 'B', 10, '2025-02-10', 'ISIN_A'],
+                                ['B', 'C', 5, '2025-02-10', 'ISIN_A'],
+                                ['B', 'A', 3,  '2025-02-10', 'ISIN_A'],
+
+                                ['A', 'B', 5, '2025-02-10', 'ISIN_B'],
+                                ['B', 'C', 10, '2025-02-10', 'ISIN_B'],
+                                ['B', 'A', 2,  '2025-02-10', 'ISIN_B'],
+
+                                ['A', 'B', 12, '2025-02-11', 'ISIN_A'],
+                                ['B', 'C', 5, '2025-02-11', 'ISIN_A'],
+                                ['B', 'A', 4, '2025-02-11', 'ISIN_A'],
+
+                                ['A', 'B', 8, '2025-02-11', 'ISIN_B'],
+                                ['B', 'C', 14, '2025-02-11', 'ISIN_B'],
+                                ['B', 'A', 5, '2025-02-11', 'ISIN_B'],
+                                ],
+                          columns=['lender', 'borrower', 'amount', 'date', 'collateral'])
+        g = cn.Graph(df=el, source='lender', target='borrower', amount='amount', grouper=['date', 'collateral'])
+
+        g.describe()
+
+        c_comp = g.compress(type='c')
+        ncmax_comp = g.compress(type='nc-max')
+        nced__comp = g.compress(type='nc-ed')
 
     def test_compress_bilateral(self):
         net = cn.Graph(sample_bilateral)

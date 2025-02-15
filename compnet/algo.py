@@ -10,6 +10,7 @@ from tabulate import tabulate
 from tqdm import tqdm
 from functools import lru_cache
 from typing import Union
+from collections.abc import Sequence
 
 __SEP = '__<>__<>__'
 
@@ -24,7 +25,7 @@ def _flip_neg_amnts(df):
 def _get_all_nodes(df):
     return sorted(set(df['SOURCE']).union(df['TARGET']))
 
-def _get_nodes_net_flow(df, grouper=None):
+def _get_nodes_net_flow(df, grouper=None, adjust_labels=None):
     all_df_nodes = _get_all_nodes(df)
     def _get_group_nodes_net_flow(f):
         group_nodes_net_flow = pd.concat([f.groupby('SOURCE').AMOUNT.sum(),
@@ -37,6 +38,12 @@ def _get_nodes_net_flow(df, grouper=None):
 
     nodes_net_flow = df.groupby(grouper).apply(_get_group_nodes_net_flow) if grouper else _get_group_nodes_net_flow(df)
     _WARNING_MISSING_NODES = True # Re-enable warnings (this prevents printing warnings for each group)
+
+    if grouper and adjust_labels:  # Adjust net_flow names
+        original_grouper = [v for k,v in adjust_labels.items() if k.startswith('GROUPER')]
+        nodes_net_flow = nodes_net_flow.reset_index().rename(columns=adjust_labels).set_index(original_grouper)
+        nodes_net_flow.columns.name = adjust_labels['AMOUNT']
+
     return nodes_net_flow
 
 def _compressed_market_size(f, grouper=None):
@@ -48,7 +55,11 @@ def _market_desc(df, grouper=None, grouper_rename=None):
            else df.AMOUNT.abs().sum())
     CMS = _compressed_market_size(df, grouper)
     EMS = GMS - CMS
-    if grouper:
+    if isinstance(grouper, Sequence) and not isinstance(grouper, str):
+        GMS.index.names = grouper_rename
+        CMS.index.names = grouper_rename
+        EMS.index.names = grouper_rename
+    elif grouper:
         GMS.index.name = CMS.index.name = EMS.index.name = grouper_rename
     return {'GMS':GMS, 'CMS':CMS, 'EMS':EMS}
 
@@ -141,7 +152,7 @@ class Graph:
 
     def __init__(self, df: pd.DataFrame,
                  source: str='SOURCE', target: str='TARGET', amount: str='AMOUNT',
-                 grouper: str=None):
+                 grouper: Union[str, list]=None):
         """
         Initialises compnet.Group object.
 
@@ -152,10 +163,18 @@ class Graph:
             amount: Name of the column corresponding to weights / amounts of corresponding source-target edge. Default is 'AMOUNT'.
             grouper: If an additional dimension exists (e.g. a date dimension), passing the corresponding column name will result in the creation of a graph for each category in the grouper column.
         """
+        if isinstance(grouper, Sequence) and not isinstance(grouper, str):
+            grouper = tuple(grouper)
+            self._multi_grouper = True
+        else:
+            self._multi_grouper = False
         self.GMS = self.CMS = self.EMS = self.properties = None
-        self._labels = [source, target, amount]+([grouper] if grouper else [])
-        self.__GROUPER = 'GROUPER' if grouper else None
-        self._labels_map = {source: 'SOURCE', target: 'TARGET', amount: 'AMOUNT', grouper:self.__GROUPER or 'GROUPER'}
+        self._labels = [source, target, amount]+((list(grouper) if self._multi_grouper else [grouper]) if grouper else [])
+        self.__GROUPER = ([f'GROUPER{n+1}' for n, grpr in enumerate(grouper)] if self._multi_grouper else 'GROUPER') if grouper else None
+        self._labels_map = {**{source: 'SOURCE', target: 'TARGET', amount: 'AMOUNT'},
+                            **({grpr: f'GROUPER{n+1}' for n, grpr in enumerate(grouper)}
+                               if self._multi_grouper else
+                               {grouper: self.__GROUPER or 'GROUPER'} if grouper else {})}
         self._labels_imap = {v:k for k,v in self._labels_map.items()}
         self.edge_list = df[self._labels].rename(columns=self._labels_map)
 
@@ -163,7 +182,8 @@ class Graph:
             warnings.warn(f"\n\nSome nodes (SOURCE `{source}` or TARGET `{target}`) are missing from some groups (GROUPER `{grouper}`).\n"
                           "These will be filled with zeros.\n")
 
-        self.net_flow = _get_nodes_net_flow(self.edge_list, grouper=self.__GROUPER)
+        self.net_flow = _get_nodes_net_flow(self.edge_list, grouper=self.__GROUPER, adjust_labels=self._labels_imap)
+
         self.describe(print_props=False, ret=False)  # Builds GMS, CMS, EMS, and properties
 
     @property
@@ -177,6 +197,13 @@ class Graph:
     @property
     def AMOUNT(self):
         return self.edge_list['AMOUNT']
+
+    def _grouper_rename(self):
+        if self._multi_grouper:
+            grouper_rename = [v for k,v in self._labels_imap.items() if k in self.__GROUPER]
+        else:
+            grouper_rename = self._labels_imap['GROUPER'] if self.__GROUPER else None
+        return grouper_rename
 
     def describe(self, print_props: bool=True, ret: bool=False, recompute: bool=False):
         """
@@ -195,7 +222,7 @@ class Graph:
                 or self.EMS is None
                 or self.properties is None
                 or recompute):
-            GMS, CMS, EMS = _market_desc(df, grouper=self.__GROUPER, grouper_rename=self._labels_imap['GROUPER']).values()
+            GMS, CMS, EMS = _market_desc(df, grouper=self.__GROUPER, grouper_rename=self._grouper_rename()).values()
 
             props = (pd.DataFrame if self.__GROUPER else pd.Series)({
                 'Gross size': GMS,  # Gross Market Size
@@ -294,7 +321,7 @@ class Graph:
         Returns:
 
         """
-        nodes_flow =self.net_flow if df is None else _get_nodes_net_flow(df)
+        nodes_flow = self.net_flow if df is None else _get_nodes_net_flow(df)
 
         nodes = np.array(nodes_flow.index)
         flows = nodes_flow.values
@@ -362,8 +389,8 @@ class Graph:
         Returns:
 
         """
-        GMS, CMS, EMS = _market_desc(df, grouper, grouper_rename=self._labels_imap['GROUPER']).values()
-        GMS_comp, CMS_comp, EMS_comp = _market_desc(df_compressed, grouper, grouper_rename=self._labels_imap['GROUPER']).values()
+        GMS, CMS, EMS = _market_desc(df, grouper, grouper_rename=self._grouper_rename()).values()
+        GMS_comp, CMS_comp, EMS_comp = _market_desc(df_compressed, grouper, grouper_rename=self._grouper_rename()).values()
         flows = _get_nodes_net_flow(df).sort_index()
         flows_comp = _get_nodes_net_flow(df_compressed, grouper).sort_index()
         assert EMS>EMS_comp or np.isclose(abs(EMS-EMS_comp), 0.0, atol=1e-6), f"Compression check failed on EMS. \n\n   Original EMS = {EMS} \n Compressed EMS = {EMS_comp}"
@@ -405,12 +432,16 @@ class Graph:
             raise Exception(f'Type {type} not recognised: please input either of NC-ED, NC-MAX, C, or bilateral.')
 
         if self.__GROUPER:
+            def clean_compressor(f):
+                compressed_df = compressor(f.drop(columns=self.__GROUPER))
+                compressed_df[self.__GROUPER] = f[self.__GROUPER].drop_duplicates().values[0]
+                return compressed_df
             grpd_df = df.groupby(self.__GROUPER)
             if progress:
                 tqdm.pandas()
-                df_compressed = grpd_df.progress_apply(compressor).reset_index(drop=True)
+                df_compressed = grpd_df.progress_apply(clean_compressor).reset_index(drop=True)
             else:
-                df_compressed = grpd_df.apply(compressor).reset_index(drop=True)
+                df_compressed = grpd_df.apply(clean_compressor).reset_index(drop=True)
         else:
             df_compressed = compressor(df)
 
@@ -425,9 +456,11 @@ class Graph:
         if ret_edgelist:
             return df_compressed
         else:
-            return Graph(df_compressed, **{v.lower() if isinstance(v, str) else v:k
-                                           for k,v in self._labels_map.items()
-                                           if v is not None})
+            kwargs = {v.lower() if isinstance(v, str) else v:k
+                      for k,v in self._labels_map.items()
+                      if v is not None and not v.lower().startswith('grouper')}
+            kwargs = {**kwargs, **dict(grouper=self._grouper_rename())}
+            return Graph(df_compressed, **kwargs)
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
