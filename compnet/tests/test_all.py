@@ -129,6 +129,8 @@ class TestCompression:
         plt.axhline(cfs2[-1], color='k')
         plt.plot(ps, cfs1, color='blue', label='Non-conservative ED')
         plt.plot(ps, cfs2, color='red', label='Non-conservative MAX')
+        plt.title('Compression factor')
+        plt.xlabel('p')
         plt.legend()
         plt.xlim(1, 20)
         plt.show()

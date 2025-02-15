@@ -103,7 +103,7 @@ the network:
 it quantifies, on average, 
 how *strongly* nodes are connected.
 If considering an unweighted network 
-(i.e. $A_{ij}\in /{0,1/}$),
+(i.e. $A_{ij}\in \\{0,1\\}$),
 then $L(A, N)$ corresponds to 
 the density of the network, 
 that is the fraction of possible links that are actually present.
@@ -118,7 +118,8 @@ for two adjacency matrices $A$ and $A^c$ is then defined as
 
 $$CF_p(A, A^c) = 1 - CR_p.$$
 
-Four options are currently available: `bilateral`, `c`, `nc-ed`, `nc-max`.
+Four options for compression are currently available: `bilateral`, `c`, `nc-ed`, `nc-max`.
+
 
 #### Bilateral compression
 Bilateral compression compresses only edges between pairs of nodes.
@@ -152,11 +153,13 @@ Compression Factor CF(p=2) = 0.718
 
 
 #### Conservative compression
-Under conservative compression onlyexisting edges (trades) are reduced or removed. 
+Under conservative compression only existing edges (trades) are reduced or removed. 
 No new edge is added.
 
 The resulting conservatively compressed graph is always a sub-graph of the original graph.
-Moreover, the resulting conservatively compressed graph is always a directed acyclic graph (DAG).
+Moreover, the resulting conservatively compressed graph is always a directed acyclic graph (DAG), 
+since all loops within the graph are removed.
+
 
 The conservatively compressed graph can be obtained as 
 ```python
@@ -181,17 +184,59 @@ Compression Factor CF(p=2) = 0.718
 ```
 
 
-#### Non-conservative ED compression
-...
+#### Non-conservative Equally-Distributed compression
+Under non-conservative compression previously non-existent edges may be introduced. 
+
+Non-conservative compression allows to achieve an after-compression 
+GMS equal to the CMS, thus removing all excess intermediation amounts in the network.
+
+However, there is no unique solution to this problem.
+
+The equally-distributed approach provides the simplest possible solution, 
+by distributing flows from nodes with negative net flows 
+to nodes with positive net flows on a pro-rata basis, 
+that is distributing flows equally. 
+
+The non-conservatively equally-distributed compressed graph 
+can be obtained as 
+```python
+g_cc = g.compress(type='nc-ed')
+g_nced
+```
+
+which in our example above returns
+```text
+compnet.Graph object:
+┌────────┬───────────────┬────────────┐
+│ SOURCE │ TARGET        │   AMOUNT   │
+├────────┼───────────────┼────────────┤
+│ A      │ C             │          5 │
+│ B      │ C             │         10 │
+└────────┴───────────────┴────────────┘
+```
+with compression efficiency and factor
+```text
+Compression Efficiency CE = 1.0
+Compression Factor CF(p=2) = 0.402
+```
+
 
 #### Maximal non-conservative compression
-...
+
+An alternative solution to the non-conservative compression problem is 
+achieved by minimising the number of links and maximising their concentration.
+
+This solution is in a sense diametrically opposed to the previous
+equally-distributed solution.
+While both solutions achieve a post-compression GMS equal to the network's CMS, 
+the present maximal non-conservative approach achieves in general
+a lower compression factor at any order $p\ge 1$.
 
 
 The non-conservative maximally compressed graph can be obtained as 
 ```python
-g_cc = g.compress(type='nc-max')
-g_cc
+g_ncmax = g.compress(type='nc-max')
+g_ncmax
 ```
 
 which in our example above returns
@@ -207,10 +252,56 @@ compnet.Graph object:
 with compression efficiency and factor
 ```text
 Compression Efficiency CE = 1.0
-Compression Factor CF(p=2) = 0.801
+Compression Factor CF(p=2) = 0.402
 ```
 
+Although in this case both the equally-distributed and maximal 
+compressions yield the same, this needs not be the case in general.
 
+Considering for instance the network
+```python
+el = pd.DataFrame([['A','B', 4],
+                   ['B','C', 3],
+                   ['C','D', 5],
+                   ],
+                  columns=['SOURCE', 'TARGET' ,'AMOUNT'])
+g = cn.Graph(el)
+```
+one finds the following equally-distributed compressed network
+```text
+compnet.Graph object:
+┌──────────┬──────────┬──────────┐
+│ SOURCE   │ TARGET   │   AMOUNT │
+├──────────┼──────────┼──────────┤
+│ A        │ B        │ 0.666667 │
+│ A        │ D        │ 3.33333  │
+│ C        │ B        │ 0.333333 │
+│ C        │ D        │ 1.66667  │
+└──────────┴──────────┴──────────┘
+```
+with compression efficiency and factor
+```text
+Compression Efficiency CE = 1.0
+Compression Factor CF(p=2) = 0.46251615011343006
+```
+Maximally non-conservative compression yields instead
+
+```text
+compnet.Graph object:
+┌──────────┬──────────┬──────────┐
+│ SOURCE   │ TARGET   │   AMOUNT │
+├──────────┼──────────┼──────────┤
+│ A        │ D        │        4 │
+│ C        │ D        │        1 │
+│ C        │ B        │        1 │
+└──────────┴──────────┴──────────┘
+
+```
+with compression efficiency and factor
+```text
+Compression Efficiency CE = 1.0
+Compression Factor CF(p=2) = 0.4
+```
 
 
 ## Grouping along additional dimensions

@@ -347,12 +347,12 @@ class Graph:
 
     def _non_conservative_compression_ED(self, df: pd.DataFrame):
         """
-        Returns non-conservative-ED compressed network.
+        Returns the non-conservative equally-distributed compressed network.
         Args:
             df: pandas.DataFrame containing three columns SOURCE, TARGET, AMOUNT
 
         Returns:
-            pandas.DataFrame containing edge list of non-conservative-ED compressed network
+            pandas.DataFrame containing edge list of non-conservative equally-distributed compressed network
 
         """
 
