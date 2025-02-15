@@ -61,6 +61,8 @@ which returns the gross, compressed, and excess market sizes of the graph
 └─────────────────┴──────────┘
 ```
 
+This data is also accessible as a `pandas.Series` via the attribute `g.properties`.
+
 Denoting by $A$ the weighted adjacency matrix of the network with elements $A_{ij}$, 
 the *gross*, *compressed*, and *excess* market sizes are respectively defined as
 
@@ -195,7 +197,55 @@ Compression Factor CF(p=2) = 0.801
 
 
 ## Grouping along additional dimensions
-If an additional dimension exists...
+
+When considering networks with additional dimensions or layers, 
+such a time, collateral type, market sub-segments, etc. 
+`compnet.Graph` allows to describe and perform compression on each such layer independently
+via the parameter `grouper`.
+
+For instance, one might consider the market described by the tensor $A^\tau$
+with elements $A^\tau_{ij}$, where $\tau$ indexes time with daily frequency.
+This can be represented for example by the following edge list:
+```python
+
+el = pd.DataFrame([['A','B', 15, '2025-02-10'],
+                   ['B','C', 15, '2025-02-10'],
+                   ['B','A', 5, '2025-02-10'],
+                   ['A','B', 20, '2025-02-11'],
+                   ['B','C', 15, '2025-02-11'],
+                   ['B','A', 6, '2025-02-11'],
+                   ['A','B', 25, '2025-02-12'],
+                   ['B','C', 15, '2025-02-12'],
+                   ['B','A', 7, '2025-02-12'],
+                   ],
+                  columns=['lender', 'borrower' ,'amount', 'date'])
+```
+
+Creating the graph object as usual via
+```python
+g = cn.Graph(el, source='lender', target='borrower', amount='amount', grouper='date')
+```
+
+and requesting its description as
+
+```python
+g.describe()
+```
+
+one is presented with the following output describing 
+the time evolution of the network's gross, compressed, and excess sizes:
+
+```text
+┌────────────┬──────────────┬───────────────────┬───────────────┐
+│ date       │   Gross size │   Compressed size │   Excess size │
+├────────────┼──────────────┼───────────────────┼───────────────┤
+│ 2025-02-10 │           35 │                15 │            20 │
+│ 2025-02-11 │           41 │                15 │            26 │
+│ 2025-02-12 │           47 │                18 │            29 │
+└────────────┴──────────────┴───────────────────┴───────────────┘
+```
+
+As before, this data is also accessible as a `pandas.DataFrame` via the attribute `g.properties`.
 
 
 

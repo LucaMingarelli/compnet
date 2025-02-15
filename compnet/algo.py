@@ -42,14 +42,14 @@ def _get_nodes_net_flow(df, grouper=None):
 def _compressed_market_size(f, grouper=None):
   return _get_nodes_net_flow(f, grouper).clip(lower=0).sum(1 if grouper else 0)
 
-def _market_desc(df, grouper=None):
+def _market_desc(df, grouper=None, grouper_rename=None):
     GMS = (df.groupby(grouper).apply(lambda g: g.AMOUNT.abs().sum())
            if grouper
            else df.AMOUNT.abs().sum())
     CMS = _compressed_market_size(df, grouper)
     EMS = GMS - CMS
     if grouper:
-        GMS.index.name = CMS.index.name = EMS.index.name = None
+        GMS.index.name = CMS.index.name = EMS.index.name = grouper_rename
     return {'GMS':GMS, 'CMS':CMS, 'EMS':EMS}
 
 @numba.njit(fastmath=True)
@@ -155,7 +155,8 @@ class Graph:
         self.GMS = self.CMS = self.EMS = self.properties = None
         self._labels = [source, target, amount]+([grouper] if grouper else [])
         self.__GROUPER = 'GROUPER' if grouper else None
-        self._labels_map = {source: 'SOURCE', target: 'TARGET', amount: 'AMOUNT', grouper:self.__GROUPER}
+        self._labels_map = {source: 'SOURCE', target: 'TARGET', amount: 'AMOUNT', grouper:self.__GROUPER or 'GROUPER'}
+        self._labels_imap = {v:k for k,v in self._labels_map.items()}
         self.edge_list = df[self._labels].rename(columns=self._labels_map)
 
         if self.__GROUPER and any(set(_get_all_nodes(self.edge_list)) - set(_get_all_nodes(g)) for _, g in self.edge_list.groupby(self.__GROUPER)):
@@ -194,7 +195,8 @@ class Graph:
                 or self.EMS is None
                 or self.properties is None
                 or recompute):
-            GMS, CMS, EMS = _market_desc(df, grouper=self.__GROUPER).values()
+            GMS, CMS, EMS = _market_desc(df, grouper=self.__GROUPER, grouper_rename=self._labels_imap['GROUPER']).values()
+
             props = (pd.DataFrame if self.__GROUPER else pd.Series)({
                 'Gross size': GMS,  # Gross Market Size
                 'Compressed size': CMS,  # Compressed Market Size
@@ -360,8 +362,8 @@ class Graph:
         Returns:
 
         """
-        GMS, CMS, EMS = _market_desc(df, grouper).values()
-        GMS_comp, CMS_comp, EMS_comp = _market_desc(df_compressed, grouper).values()
+        GMS, CMS, EMS = _market_desc(df, grouper, grouper_rename=self._labels_imap['GROUPER']).values()
+        GMS_comp, CMS_comp, EMS_comp = _market_desc(df_compressed, grouper, grouper_rename=self._labels_imap['GROUPER']).values()
         flows = _get_nodes_net_flow(df).sort_index()
         flows_comp = _get_nodes_net_flow(df_compressed, grouper).sort_index()
         assert EMS>EMS_comp or np.isclose(abs(EMS-EMS_comp), 0.0, atol=1e-6), f"Compression check failed on EMS. \n\n   Original EMS = {EMS} \n Compressed EMS = {EMS_comp}"
