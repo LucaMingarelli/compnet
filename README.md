@@ -307,7 +307,7 @@ Compression Factor CF(p=2) = 0.4
 ## Grouping along additional dimensions
 
 When considering networks with additional dimensions or layers, 
-such a time, collateral type, market sub-segments, etc. 
+such as time, collateral type, market sub-segments, etc. 
 `compnet.Graph` allows to describe and perform compression on each such layer independently
 via the parameter `grouper`, taking either a single field (as `str`) 
 or multiple ones (as `list`) if grouping along multiple dimensions is necessary.
