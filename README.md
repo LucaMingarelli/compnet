@@ -80,6 +80,19 @@ $$
 
 Notice in particular that $\sum_j \left(A_{ij} - A_{ji}\right)$ represents the net position of node $i$.
 
+The net position of each node are also accessible as
+`g.net_flow`, which returns
+
+```text
+A    -5.0
+B   -10.0
+C    15.0
+```
+Similarly, the gross amount for each node can be accessed as
+`g.gross_flow`, which returns
+
+
+
 ----
 
 At this point, it is possible to run a compression algorithm on `g` via the method `Graph.compress`.
