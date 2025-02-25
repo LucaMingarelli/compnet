@@ -46,6 +46,32 @@ def _get_nodes_net_flow(df, grouper=None, adjust_labels=None):
 
     return nodes_net_flow
 
+
+def _get_nodes_gross_flow(df, grouper=None, adjust_labels=None):
+    all_df_nodes = _get_all_nodes(df)
+    def _get_group_nodes_gross_flow(f):
+        group_nodes_gross_flow = pd.concat([f.groupby('SOURCE').AMOUNT.sum(),
+                                           f.groupby('TARGET').AMOUNT.sum()],
+                                           axis=1).fillna(0)
+        group_nodes_gross_flow.index.name = 'ENTITY'
+        group_nodes_gross_flow.columns = 'OUT', 'IN'
+        group_nodes_gross_flow['GROSS_TOTAL'] = group_nodes_gross_flow.sum(1)
+        if set(_get_all_nodes(f))!=set(all_df_nodes):
+            return group_nodes_gross_flow.reindex(all_df_nodes, fill_value=0).sort_index()
+        else:
+            return group_nodes_gross_flow.sort_index()
+
+    nodes_gross_flow = df.groupby(grouper).apply(_get_group_nodes_gross_flow) if grouper else _get_group_nodes_gross_flow(df)
+    _WARNING_MISSING_NODES = True # Re-enable warnings (this prevents printing warnings for each group)
+
+    if grouper and adjust_labels:  # Adjust net_flow names
+        original_grouper = [v for k,v in adjust_labels.items() if k.startswith('GROUPER')]
+        nodes_gross_flow = nodes_gross_flow.reset_index().rename(columns=adjust_labels).set_index(original_grouper)
+        nodes_gross_flow.columns.name = adjust_labels['AMOUNT']
+
+    return nodes_gross_flow
+
+
 def _compressed_market_size(f, grouper=None):
   return _get_nodes_net_flow(f, grouper).clip(lower=0).sum(1 if grouper else 0)
 
@@ -182,6 +208,7 @@ class Graph:
                           "These will be filled with zeros.\n")
 
         self.net_flow = _get_nodes_net_flow(self.edge_list, grouper=self.__GROUPER, adjust_labels=self._labels_imap)
+        self.gross_flow = _get_nodes_gross_flow(df=self.edge_list, grouper=self.__GROUPER, adjust_labels=self._labels_imap)
 
         self.describe(print_props=False, ret=False)  # Builds GMS, CMS, EMS, and properties
 
