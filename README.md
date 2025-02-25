@@ -91,7 +91,13 @@ C    15.0
 Similarly, the gross amount for each node can be accessed as
 `g.gross_flow`, which returns
 
-
+```text
+         OUT  IN  GROSS_TOTAL
+ENTITY                       
+A       10.0   5         15.0
+B       20.0  10         30.0
+C        0.0  15         15.0
+```
 
 ----
 

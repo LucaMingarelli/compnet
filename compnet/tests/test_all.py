@@ -30,8 +30,13 @@ class Test_DErrico:
 class TestCompression:
 
     def test_describe(self):
-        cn.Graph(sample_bilateral).describe()
+        g = cn.Graph(sample_bilateral)
+        g.describe()
         assert (cn.Graph(sample_bilateral).describe(ret=True) == [30, 15, 15]).all()
+        assert g.gross_flow['IN'].to_dict() == {'A': 5, 'B': 10, 'C': 15}
+        assert g.gross_flow['OUT'].to_dict() == {'A': 10.0, 'B': 20.0, 'C': 0.0}
+        assert g.gross_flow['GROSS_TOTAL'].to_dict()=={'A': 15.0, 'B': 30.0, 'C': 15.0}
+        assert g.net_flow.to_dict()== {'A': -5.0, 'B': -10.0, 'C': 15.0}
 
     def test_with_grouper(self):
         # One grouper
@@ -47,6 +52,14 @@ class TestCompression:
                            ],
                           columns=['lender', 'borrower', 'amount', 'date'])
         g = cn.Graph(el, source='lender', target='borrower', amount='amount', grouper='date')
+
+        assert g.gross_flow['IN'].to_dict() == {'A': {'2025-02-10': 5, '2025-02-11': 6, '2025-02-12': 7},
+                                                'B': {'2025-02-10': 15, '2025-02-11': 20, '2025-02-12': 25},
+                                                'C': {'2025-02-10': 15, '2025-02-11': 15, '2025-02-12': 15}}
+
+        assert g.net_flow.to_dict() == {'A': {'2025-02-10': -10.0, '2025-02-11': -14.0, '2025-02-12': -18.0},
+                                        'B': {'2025-02-10': -5.0, '2025-02-11': -1.0, '2025-02-12': 3.0},
+                                        'C': {'2025-02-10': 15.0, '2025-02-11': 15.0, '2025-02-12': 15.0}}
 
         c_comp = g.compress(type='c')
         ncmax_comp = g.compress(type='nc-max')

@@ -68,6 +68,9 @@ def _get_nodes_gross_flow(df, grouper=None, adjust_labels=None):
         original_grouper = [v for k,v in adjust_labels.items() if k.startswith('GROUPER')]
         nodes_gross_flow = nodes_gross_flow.reset_index().rename(columns=adjust_labels).set_index(original_grouper)
         nodes_gross_flow.columns.name = adjust_labels['AMOUNT']
+        nodes_gross_flow = {'IN': nodes_gross_flow.set_index('ENTITY', append=True)['IN'].unstack('ENTITY'),
+                            'OUT': nodes_gross_flow.set_index('ENTITY', append=True)['OUT'].unstack('ENTITY'),
+                            'GROSS_TOTAL': nodes_gross_flow.set_index('ENTITY', append=True)['GROSS_TOTAL'].unstack('ENTITY')}
 
     return nodes_gross_flow
 
