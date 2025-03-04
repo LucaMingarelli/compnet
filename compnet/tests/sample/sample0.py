@@ -21,6 +21,16 @@ sample_bilateral = pd.DataFrame(
     columns=['SOURCE', 'TARGET' ,'AMOUNT']
 )
 
+sample_purebilateral = pd.DataFrame(
+    [['A','B', 10],
+     ['A','D', 15],
+     ['C','D', 5],
+     ],
+    columns=['SOURCE', 'TARGET' ,'AMOUNT']
+)
+
+
+
 sample_noncons1 = pd.DataFrame(
     [['A','B', 6],
      ['B','C', 5],
@@ -145,5 +155,35 @@ sample_entangled = pd.DataFrame(
 
 
 
+
+sample_onegrouper = pd.DataFrame([['A', 'B', 15, '2025-02-10'],
+                           ['B', 'C', 15, '2025-02-10'],
+                           ['B', 'A', 5, '2025-02-10'],
+                           ['A', 'B', 20, '2025-02-11'],
+                           ['B', 'C', 15, '2025-02-11'],
+                           ['B', 'A', 6, '2025-02-11'],
+                           ['A', 'B', 25, '2025-02-12'],
+                           ['B', 'C', 15, '2025-02-12'],
+                           ['B', 'A', 7, '2025-02-12'],
+                           ],
+                          columns=['lender', 'borrower', 'amount', 'date'])
+
+sample_twogrouper = pd.DataFrame([['A', 'B', 10, '2025-02-10', 'ISIN_A'],
+                                  ['B', 'C', 5, '2025-02-10', 'ISIN_A'],
+                                  ['B', 'A', 3,  '2025-02-10', 'ISIN_A'],
+
+                                  ['A', 'B', 5, '2025-02-10', 'ISIN_B'],
+                                  ['B', 'C', 10, '2025-02-10', 'ISIN_B'],
+                                  ['B', 'A', 2,  '2025-02-10', 'ISIN_B'],
+
+                                  ['A', 'B', 12, '2025-02-11', 'ISIN_A'],
+                                  ['B', 'C', 5, '2025-02-11', 'ISIN_A'],
+                                  ['B', 'A', 4, '2025-02-11', 'ISIN_A'],
+
+                                  ['A', 'B', 8, '2025-02-11', 'ISIN_B'],
+                                  ['B', 'C', 14, '2025-02-11', 'ISIN_B'],
+                                  ['B', 'A', 5, '2025-02-11', 'ISIN_B'],
+                                  ],
+                                 columns=['lender', 'borrower', 'amount', 'date', 'collateral'])
 
 

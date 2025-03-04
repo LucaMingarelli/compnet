@@ -227,6 +227,20 @@ class Graph:
     def AMOUNT(self):
         return self.edge_list['AMOUNT']
 
+    @property
+    def ENTITIES(self):
+        if self.__GROUPER is None:
+            entities = pd.DataFrame({'dealer_ratio': 1 - self.net_flow.abs() / self.gross_flow['GROSS_TOTAL']})
+        else:
+            entities = {'dealer_ratio': 1 - self.net_flow.abs() / self.gross_flow['GROSS_TOTAL']}
+
+        entities['is_dealer'] = entities['dealer_ratio'] > 0
+        entities['inflow'] = self.gross_flow['IN']
+        entities['outflow'] = self.gross_flow['OUT']
+        entities['gross_flow'] = self.gross_flow['GROSS_TOTAL']
+        entities['net_flow'] = self.net_flow
+        return entities
+
     def _grouper_rename(self):
         if self._multi_grouper:
             grouper_rename = [v for k,v in self._labels_imap.items() if k in self.__GROUPER]
@@ -410,7 +424,6 @@ class Graph:
 
     def _check_compression(self, df: pd.DataFrame, df_compressed: pd.DataFrame, grouper: str=None):
         """
-        TODO: test with non-null grouper!
         Args:
             df:
             df_compressed:

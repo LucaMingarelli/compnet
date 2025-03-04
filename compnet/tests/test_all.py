@@ -7,11 +7,12 @@ import pandas as pd, numpy as np, pylab as plt, networkx as nx
 import compnet as cn
 
 
-from compnet.tests.sample.sample0 import (sample0, sample_bilateral, sample_cycle, sample_entangled,
-                                  sample_nested_cycle1, sample_nested_cycle2, sample_nested_cycle3, sample_nested_cycle4,
-                                  sample_noncons1, sample_noncons1_compressed, sample_noncons2, sample_noncons2_compressed,
-                                  sample_noncons2_compressed, sample_noncons3, sample_noncons3_compressed, sample_noncons4, 
-                                  sample_noncons4_compressed)
+from compnet.tests.sample.sample0 import (sample0, sample_bilateral, sample_cycle, sample_entangled, sample_purebilateral,
+                                          sample_nested_cycle1, sample_nested_cycle2, sample_nested_cycle3, sample_nested_cycle4,
+                                          sample_noncons1, sample_noncons1_compressed, sample_noncons2, sample_noncons2_compressed,
+                                          sample_noncons2_compressed, sample_noncons3, sample_noncons3_compressed, sample_noncons4,
+                                          sample_noncons4_compressed,
+                                          sample_onegrouper, sample_twogrouper)
 
 
 ### Compare page 64 here: https://www.esrb.europa.eu/pub/pdf/wp/esrbwp44.en.pdf
@@ -40,18 +41,7 @@ class TestCompression:
 
     def test_with_grouper(self):
         # One grouper
-        el = pd.DataFrame([['A', 'B', 15, '2025-02-10'],
-                           ['B', 'C', 15, '2025-02-10'],
-                           ['B', 'A', 5, '2025-02-10'],
-                           ['A', 'B', 20, '2025-02-11'],
-                           ['B', 'C', 15, '2025-02-11'],
-                           ['B', 'A', 6, '2025-02-11'],
-                           ['A', 'B', 25, '2025-02-12'],
-                           ['B', 'C', 15, '2025-02-12'],
-                           ['B', 'A', 7, '2025-02-12'],
-                           ],
-                          columns=['lender', 'borrower', 'amount', 'date'])
-        g = cn.Graph(el, source='lender', target='borrower', amount='amount', grouper='date')
+        g = cn.Graph(sample_onegrouper, source='lender', target='borrower', amount='amount', grouper='date')
 
         assert g.gross_flow['IN'].to_dict() == {'A': {'2025-02-10': 5, '2025-02-11': 6, '2025-02-12': 7},
                                                 'B': {'2025-02-10': 15, '2025-02-11': 20, '2025-02-12': 25},
@@ -66,24 +56,7 @@ class TestCompression:
         nced__comp = g.compress(type='nc-ed')
 
         # Multiple groupers
-        el = pd.DataFrame([['A', 'B', 10, '2025-02-10', 'ISIN_A'],
-                                ['B', 'C', 5, '2025-02-10', 'ISIN_A'],
-                                ['B', 'A', 3,  '2025-02-10', 'ISIN_A'],
-
-                                ['A', 'B', 5, '2025-02-10', 'ISIN_B'],
-                                ['B', 'C', 10, '2025-02-10', 'ISIN_B'],
-                                ['B', 'A', 2,  '2025-02-10', 'ISIN_B'],
-
-                                ['A', 'B', 12, '2025-02-11', 'ISIN_A'],
-                                ['B', 'C', 5, '2025-02-11', 'ISIN_A'],
-                                ['B', 'A', 4, '2025-02-11', 'ISIN_A'],
-
-                                ['A', 'B', 8, '2025-02-11', 'ISIN_B'],
-                                ['B', 'C', 14, '2025-02-11', 'ISIN_B'],
-                                ['B', 'A', 5, '2025-02-11', 'ISIN_B'],
-                                ],
-                          columns=['lender', 'borrower', 'amount', 'date', 'collateral'])
-        g = cn.Graph(df=el, source='lender', target='borrower', amount='amount', grouper=['date', 'collateral'])
+        g = cn.Graph(df=sample_twogrouper, source='lender', target='borrower', amount='amount', grouper=['date', 'collateral'])
 
         g.describe()
 
@@ -149,6 +122,22 @@ class TestCompression:
         plt.show()
 
 
+    def test_ENTITIES(self):
+        assert cn.Graph(sample_derrico).ENTITIES.is_dealer.all()
+        assert not cn.Graph(sample_purebilateral).ENTITIES.is_dealer.any()
+
+        assert cn.Graph(df=sample_onegrouper,
+                 source='lender',
+                 target='borrower',
+                 amount='amount',
+                 grouper='date').ENTITIES['is_dealer'].A.all()
+
+        assert cn.Graph(df=sample_twogrouper,
+                        source='lender',
+                        target='borrower',
+                        amount='amount',
+                        grouper=['date', 'collateral']
+                        ).ENTITIES['is_dealer'].A.all()
 
 
 
