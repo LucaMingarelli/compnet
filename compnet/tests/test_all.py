@@ -139,7 +139,12 @@ class TestCompression:
                         grouper=['date', 'collateral']
                         ).ENTITIES['is_dealer'].A.all()
 
-
+        assert set(cn.Graph(sample_derrico).DEALERS.index) == {'Node A', 'Node B', 'Node C'}
+        assert len(set(cn.Graph(df=sample_onegrouper,
+                 source='lender',
+                 target='borrower',
+                 amount='amount',
+                 grouper='date').DEALERS))==2
 
 
 

@@ -241,6 +241,19 @@ class Graph:
         entities['net_flow'] = self.net_flow
         return entities
 
+    @property
+    def DEALERS(self):
+        if self.__GROUPER is None:
+            dealers = self.ENTITIES.loc[self.ENTITIES['is_dealer'], ['dealer_ratio']]
+            dealers.index.name = 'entity'
+        else:
+            dealers = (self.ENTITIES['dealer_ratio']
+                           .melt(ignore_index=False)
+                           .rename(columns={'amount': 'entity', 'value': 'dealer_ratio'})
+                       )
+            dealers = dealers[dealers.dealer_ratio>0]
+        return dealers
+
     def _grouper_rename(self):
         if self._multi_grouper:
             grouper_rename = [v for k,v in self._labels_imap.items() if k in self.__GROUPER]
