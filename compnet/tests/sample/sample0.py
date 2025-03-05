@@ -186,4 +186,13 @@ sample_twogrouper = pd.DataFrame([['A', 'B', 10, '2025-02-10', 'ISIN_A'],
                                   ],
                                  columns=['lender', 'borrower', 'amount', 'date', 'collateral'])
 
+sample_warning = pd.DataFrame([['A', 'B', 15, '2025-02-10'],
+                                    ['A', 'B', 20, '2025-02-11'],
+                                    ['B', 'C', 15, '2025-02-11'],
+                                    ['B', 'A', 6, '2025-02-11'],
+                                    ['A', 'B', 25, '2025-02-12'],
+                                    ['B', 'C', 15, '2025-02-12'],
+                                    ['B', 'A', 7, '2025-02-12'],
+                                    ],
+                                   columns=['lender', 'borrower', 'amount', 'date'])
 

@@ -191,6 +191,7 @@ class Graph:
             amount: Name of the column corresponding to weights / amounts of corresponding source-target edge. Default is 'AMOUNT'.
             grouper: If an additional dimension exists (e.g. a date dimension), passing the corresponding column name will result in the creation of a graph for each category in the grouper column.
         """
+        from compnet import SUPPRESS_WARNINGS
         if isinstance(grouper, Sequence) and not isinstance(grouper, str):
             grouper = tuple(grouper)
             self._multi_grouper = True
@@ -206,7 +207,7 @@ class Graph:
         self._labels_imap = {v:k for k,v in self._labels_map.items()}
         self.edge_list = df[self._labels].rename(columns=self._labels_map)
 
-        if self.__GROUPER and any(set(_get_all_nodes(self.edge_list)) - set(_get_all_nodes(g)) for _, g in self.edge_list.groupby(self.__GROUPER)):
+        if self.__GROUPER and any(set(_get_all_nodes(self.edge_list)) - set(_get_all_nodes(g)) for _, g in self.edge_list.groupby(self.__GROUPER)) and not SUPPRESS_WARNINGS:
             warnings.warn(f"\n\nSome nodes (SOURCE `{source}` or TARGET `{target}`) are missing from some groups (GROUPER `{grouper}`).\n"
                           "These will be filled with zeros.\n")
 

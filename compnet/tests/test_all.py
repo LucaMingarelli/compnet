@@ -12,7 +12,7 @@ from compnet.tests.sample.sample0 import (sample0, sample_bilateral, sample_cycl
                                           sample_noncons1, sample_noncons1_compressed, sample_noncons2, sample_noncons2_compressed,
                                           sample_noncons2_compressed, sample_noncons3, sample_noncons3_compressed, sample_noncons4,
                                           sample_noncons4_compressed,
-                                          sample_onegrouper, sample_twogrouper)
+                                          sample_onegrouper, sample_twogrouper, sample_warning)
 
 
 ### Compare page 64 here: https://www.esrb.europa.eu/pub/pdf/wp/esrbwp44.en.pdf
@@ -146,5 +146,20 @@ class TestCompression:
                  amount='amount',
                  grouper='date').DEALERS))==2
 
+
+    def test_Warnings(self):
+        cn.Graph(df=sample_warning,
+                 source='lender',
+                 target='borrower',
+                 amount='amount',
+                 grouper='date')
+
+        cn.SUPPRESS_WARNINGS = True
+
+        cn.Graph(df=sample_warning,
+                 source='lender',
+                 target='borrower',
+                 amount='amount',
+                 grouper='date')
 
 
