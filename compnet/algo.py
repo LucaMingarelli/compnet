@@ -25,7 +25,7 @@ def _flip_neg_amnts(df):
 def _get_all_nodes(df):
     return sorted(set(df['SOURCE']).union(df['TARGET']))
 
-def _get_nodes_net_flow(df, grouper=None, adjust_labels=None):
+def _get_nodes_net_flow(df, grouper=None, adjust_labels=None, progress=False):
     all_df_nodes = _get_all_nodes(df)
     def _get_group_nodes_net_flow(f):
         group_nodes_net_flow = pd.concat([f.groupby('SOURCE').AMOUNT.sum(),
@@ -36,7 +36,11 @@ def _get_nodes_net_flow(df, grouper=None, adjust_labels=None):
         else:
             return group_nodes_net_flow.sort_index()
 
-    nodes_net_flow = df.groupby(grouper).apply(_get_group_nodes_net_flow) if grouper else _get_group_nodes_net_flow(df)
+    if progress:
+        tqdm.pandas(desc="Computing net flows", postfix=None)
+        nodes_net_flow = df.groupby(grouper).progress_apply(_get_group_nodes_net_flow) if grouper else _get_group_nodes_net_flow(df)
+    else:
+        nodes_net_flow = df.groupby(grouper).apply(_get_group_nodes_net_flow) if grouper else _get_group_nodes_net_flow(df)
     _WARNING_MISSING_NODES = True # Re-enable warnings (this prevents printing warnings for each group)
 
     if grouper and adjust_labels:  # Adjust net_flow names
@@ -47,7 +51,7 @@ def _get_nodes_net_flow(df, grouper=None, adjust_labels=None):
     return nodes_net_flow
 
 
-def _get_nodes_gross_flow(df, grouper=None, adjust_labels=None):
+def _get_nodes_gross_flow(df, grouper=None, adjust_labels=None, progress=False):
     all_df_nodes = _get_all_nodes(df)
     def _get_group_nodes_gross_flow(f):
         group_nodes_gross_flow = pd.concat([f.groupby('SOURCE').AMOUNT.sum(),
@@ -61,7 +65,11 @@ def _get_nodes_gross_flow(df, grouper=None, adjust_labels=None):
         else:
             return group_nodes_gross_flow.sort_index()
 
-    nodes_gross_flow = df.groupby(grouper).apply(_get_group_nodes_gross_flow) if grouper else _get_group_nodes_gross_flow(df)
+    if progress:
+        tqdm.pandas(desc="Computing gross flows", postfix=None)
+        nodes_gross_flow = df.groupby(grouper).progress_apply(_get_group_nodes_gross_flow) if grouper else _get_group_nodes_gross_flow(df)
+    else:
+        nodes_gross_flow = df.groupby(grouper).apply(_get_group_nodes_gross_flow) if grouper else _get_group_nodes_gross_flow(df)
     _WARNING_MISSING_NODES = True # Re-enable warnings (this prevents printing warnings for each group)
 
     if grouper and adjust_labels:  # Adjust net_flow names
@@ -78,11 +86,25 @@ def _get_nodes_gross_flow(df, grouper=None, adjust_labels=None):
 def _compressed_market_size(f, grouper=None):
   return _get_nodes_net_flow(f, grouper).clip(lower=0).sum(1 if grouper else 0)
 
-def _market_desc(df, grouper=None, grouper_rename=None):
+def _market_desc_OLD(df, grouper=None, grouper_rename=None):
     GMS = (df.groupby(grouper).apply(lambda g: g.AMOUNT.abs().sum())
            if grouper
            else df.AMOUNT.abs().sum())
     CMS = _compressed_market_size(df, grouper)
+    EMS = GMS - CMS
+    if isinstance(grouper, Sequence) and not isinstance(grouper, str):
+        GMS.index.names = grouper_rename
+        CMS.index.names = grouper_rename
+        EMS.index.names = grouper_rename
+    elif grouper:
+        GMS.index.name = CMS.index.name = EMS.index.name = grouper_rename
+    return {'GMS':GMS, 'CMS':CMS, 'EMS':EMS}
+
+
+def _market_desc(gross_flows, grouper=None, grouper_rename=None):
+    GMS = gross_flows['GROSS_TOTAL'].sum(1)/2 if isinstance(gross_flows, dict) else gross_flows['GROSS_TOTAL'].sum()/2
+    net_flows = gross_flows['IN'] - gross_flows['OUT']
+    CMS = net_flows.clip(lower=0).sum(1 if grouper else 0)
     EMS = GMS - CMS
     if isinstance(grouper, Sequence) and not isinstance(grouper, str):
         GMS.index.names = grouper_rename
@@ -119,11 +141,16 @@ def _noncons_compr_max_min(ordered_flows, max_links):
 
     return EL, pairs
 
-def compression_efficiency(df, df_compressed):
-    CE = 1 - _market_desc(df_compressed)['EMS'] / _market_desc(df)['EMS']
+def compression_efficiency(df, df_compressed, grouper=None):
+    gross_flows = _get_nodes_gross_flow(df=df, grouper=grouper)
+    gross_flows_comp = _get_nodes_gross_flow(df=df_compressed, grouper=grouper)
+    GMS, CMS, EMS = _market_desc(gross_flows=gross_flows, grouper=grouper).values()
+    GMS_comp, CMS_comp, EMS_comp = _market_desc(gross_flows=gross_flows_comp, grouper=grouper).values()
+    CE = 1 - EMS_comp / EMS
     return CE
 
-def compression_factor(df1, df2, p=2):
+
+def compression_factor(df1, df2, p=2, grouper=None):
     r"""Returns compression factor of df2 with respect to df1.
 
     The compression factor CF for two networks with N nodes and weighted adjacency matrix C_1 and C_2 is defined as
@@ -155,9 +182,8 @@ def compression_factor(df1, df2, p=2):
     Returns:
         Compression factor
     """
-
     if str(p).lower()=='ems_ratio':  # In the bilateral compression case this corresponds to the limit p=∞
-        CR = 1- compression_efficiency(df=df1, df_compressed=df2)
+        CR = 1- compression_efficiency(df=df1, df_compressed=df2, grouper=grouper)
     else:
         N = len(set(df1[['SOURCE', 'TARGET']].values.flatten()))
         Lp1 = (df1.AMOUNT.abs()**p).sum() ** (1/p) # * (2 / (N*(N-1)))**(1/p)
@@ -180,7 +206,8 @@ class Graph:
 
     def __init__(self, df: pd.DataFrame,
                  source: str='SOURCE', target: str='TARGET', amount: str='AMOUNT',
-                 grouper: Union[str, list]=None):
+                 grouper: Union[str, list]=None,
+                 progress=False):
         """
         Initialises compnet.Group object.
 
@@ -211,8 +238,9 @@ class Graph:
             warnings.warn(f"\n\nSome nodes (SOURCE `{source}` or TARGET `{target}`) are missing from some groups (GROUPER `{grouper}`).\n"
                           "These will be filled with zeros.\n")
 
-        self.net_flow = _get_nodes_net_flow(self.edge_list, grouper=self.__GROUPER, adjust_labels=self._labels_imap)
-        self.gross_flow = _get_nodes_gross_flow(df=self.edge_list, grouper=self.__GROUPER, adjust_labels=self._labels_imap)
+        self.gross_flow = _get_nodes_gross_flow(df=self.edge_list, grouper=self.__GROUPER, adjust_labels=self._labels_imap, progress=progress)
+        self.net_flow = self.gross_flow['IN'] - self.gross_flow['OUT']
+        # self.net_flow = _get_nodes_net_flow(self.edge_list, grouper=self.__GROUPER, adjust_labels=self._labels_imap, progress=progress)
 
         self.describe(print_props=False, ret=False)  # Builds GMS, CMS, EMS, and properties
 
@@ -279,7 +307,9 @@ class Graph:
                 or self.EMS is None
                 or self.properties is None
                 or recompute):
-            GMS, CMS, EMS = _market_desc(df, grouper=self.__GROUPER, grouper_rename=self._grouper_rename()).values()
+            GMS, CMS, EMS = _market_desc(gross_flows=self.gross_flow,
+                                         grouper=self.__GROUPER,
+                                         grouper_rename=self._grouper_rename()).values()
 
             props = (pd.DataFrame if self.__GROUPER else pd.Series)({
                 'Gross size': GMS,  # Gross Market Size
@@ -445,19 +475,22 @@ class Graph:
         Returns:
 
         """
-        GMS, CMS, EMS = _market_desc(df, grouper, grouper_rename=self._grouper_rename()).values()
-        GMS_comp, CMS_comp, EMS_comp = _market_desc(df_compressed, grouper, grouper_rename=self._grouper_rename()).values()
-        flows = _get_nodes_net_flow(df).sort_index()
-        flows_comp = _get_nodes_net_flow(df_compressed, grouper).sort_index()
+        gross_flows = _get_nodes_gross_flow(df=df, grouper=grouper)
+        gross_flows_comp = _get_nodes_gross_flow(df=df_compressed, grouper=grouper)
+        net_flows = gross_flows['IN'] - gross_flows['OUT']
+        net_flows_comp = gross_flows_comp['IN'] - gross_flows_comp['OUT']
+        GMS, CMS, EMS = _market_desc(gross_flows=gross_flows, grouper=grouper, grouper_rename=self._grouper_rename()).values()
+        GMS_comp, CMS_comp, EMS_comp = _market_desc(gross_flows=gross_flows_comp, grouper=grouper, grouper_rename=self._grouper_rename()).values()
+
         assert EMS>EMS_comp or np.isclose(abs(EMS-EMS_comp), 0.0, atol=1e-6), f"Compression check failed on EMS. \n\n   Original EMS = {EMS} \n Compressed EMS = {EMS_comp}"
-        assert np.isclose(pd.concat([flows, flows_comp], axis=1).fillna(0).diff(0).abs().max().max(), 0.0, atol=1e-6), f"Compression check failed on FLOWS. \n\n  Original flows = {flows.to_dict()} \nCompressed flows = {flows_comp.to_dict()}"
+        assert np.isclose(pd.concat([net_flows, net_flows_comp], axis=1).fillna(0).diff(0).abs().max().max(), 0.0, atol=1e-6), f"Compression check failed on FLOWS. \n\n  Original flows = {flows.to_dict()} \nCompressed flows = {flows_comp.to_dict()}"
         assert np.isclose(CMS, CMS_comp, atol=1e-6), f"Compression check failed on CMS. \n\n   Original CMS = {CMS} \n Compressed CMS = {CMS_comp}"
 
     def compress(self,
                  type: str='bilateral',
                  compression_p: int=2,
-                 verbose: bool=True,
-                 progress: bool = True,
+                 verbose: bool=False,
+                 progress: bool=True,
                  ret_edgelist: bool=False,
                  _check_compr: bool=True,
                  ):
@@ -466,7 +499,7 @@ class Graph:
         Args:
             type: Type of compression. Either of ('NC-ED', 'NC-MAX', 'C', 'bilateral')
             compression_p: Compression order. Default is `p=1`.
-            verbose: If `True` (default) prints out compression efficiency and compression factor.
+            verbose: If `True` prints out compression efficiency and compression factor.
             progress: Whether to display a progress bar. Default is True.
             ret_edgelist: If `False` (default) returns a compnet.Graph object. Otherwise only the compressed network's edge list.
             _check_compr: Whether to call Graph._check_compression. Default is True.
@@ -501,13 +534,15 @@ class Graph:
         else:
             df_compressed = compressor(df)
 
-        if _check_compr:
-            self._check_compression(df=df, df_compressed=df_compressed)
-        if verbose:
-            comp_rt = compression_factor(df1=df, df2=df_compressed, p=compression_p)
-            comp_eff = compression_efficiency(df=df, df_compressed=df_compressed)
+        if _check_compr and self.__GROUPER is None:
+            self._check_compression(df=df, df_compressed=df_compressed, grouper=self.__GROUPER)
+        if verbose and self.__GROUPER is None:
+            comp_rt = compression_factor(df1=df, df2=df_compressed, p=compression_p, grouper=self.__GROUPER)
+            comp_eff = compression_efficiency(df=df, df_compressed=df_compressed, grouper=self.__GROUPER)
             print(f"Compression Efficiency CE = {comp_eff}")
             print(f"Compression Factor CF(p={compression_p}) = {comp_rt}")
+        elif verbose and self.__GROUPER is not None:
+            raise ValueError('Verbose not yet available together with grouper.')
         df_compressed = df_compressed.rename(columns={v: k for k, v in self._labels_map.items()})
         if ret_edgelist:
             return df_compressed

@@ -23,9 +23,25 @@ sample_derrico = pd.DataFrame([['Node A','Node B', 5],
 
 class Test_DErrico:
     def test_conservative_compression(self):
-        c_comp = cn.Graph(df=sample_derrico).compress(type='c')
-        ncmax_comp = cn.Graph(sample_derrico).compress(type='nc-max')
-        nced__comp = cn.Graph(sample_derrico).compress(type='nc-ed')
+        g = cn.Graph(df=sample_derrico)
+        c_comp = g.compress(type='c', verbose=True)
+        ncmax_comp = g.compress(type='nc-max', verbose=True)
+        nced__comp = g.compress(type='nc-ed', verbose=True)
+
+        assert g.GMS==35 and g.CMS==15 and g.EMS==20
+        assert c_comp.GMS == 20 and c_comp.CMS == 15 and c_comp.EMS == 5
+        assert ncmax_comp.GMS == 15 and ncmax_comp.CMS == 15 and ncmax_comp.EMS == 0
+        assert nced__comp.GMS == 15 and nced__comp.CMS == 15 and nced__comp.EMS == 0
+
+        g = cn.Graph(df=sample_twogrouper,
+                        source='lender',
+                        target='borrower',
+                        amount='amount',
+                        grouper=['date', 'collateral'])
+        c_comp = g.compress(type='c', verbose=False)
+        ncmax_comp = g.compress(type='nc-max', verbose=False)
+        nced__comp = g.compress(type='nc-ed', verbose=False)
+
 
 
 class TestCompression:
@@ -161,5 +177,15 @@ class TestCompression:
                  target='borrower',
                  amount='amount',
                  grouper='date')
+
+    def test_progress(self):
+        g = cn.Graph(df=sample_twogrouper,
+                        source='lender',
+                        target='borrower',
+                        amount='amount',
+                        grouper=['date', 'collateral'],
+                        progress=True)
+
+        cn.Graph(sample_derrico, progress=False)
 
 
