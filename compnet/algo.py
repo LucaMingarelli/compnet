@@ -16,7 +16,7 @@ from collections.abc import Sequence
 __SEP = '__<>__<>__'
 
 def _flip_neg_amnts(df):
-    f = df.copy(deep=True)
+    f = df#.copy(deep=True)
     f_flip = f[f.AMOUNT<0].iloc[:, [1,0,2]]
     f_flip.columns = df.columns
     f_flip['AMOUNT'] *= -1
@@ -29,17 +29,6 @@ def _get_all_nodes(df):
                          SELECT DISTINCT TARGET AS entity FROM df 
                          ORDER BY entity
                       """).to_df().entity.to_list()
-
-def _get_nodes_net_flow(df, grouper=None, adjust_labels=None):
-    inflow, outflow = _get_nodes_flows(df, grouper=grouper)
-    nodes_net_flow = pd.concat([outflow, inflow], axis=1).fillna(0).T.diff().iloc[-1, :]
-
-    if grouper and adjust_labels:  # Adjust net_flow names
-        original_grouper = [v for k,v in adjust_labels.items() if k.startswith('GROUPER')]
-        nodes_net_flow = nodes_net_flow.reset_index().rename(columns=adjust_labels).set_index(original_grouper)
-        nodes_net_flow.columns.name = adjust_labels['AMOUNT']
-
-    return nodes_net_flow
 
 def _get_nodes_flows(df, grouper=None):
     grper_str = ','.join(grouper) + ',' if isinstance(grouper, list) else f'{grouper},' if grouper is not None else ''
@@ -57,10 +46,23 @@ def _get_nodes_flows(df, grouper=None):
     return inflow, outflow
 
 
+def _get_nodes_net_flow(df, grouper=None, adjust_labels=None):
+    inflow, outflow = _get_nodes_flows(df, grouper=grouper)
+    nodes_net_flow = pd.concat([outflow, inflow], axis=1).fillna(0).T.diff().iloc[-1, :]
+
+    if grouper and adjust_labels:  # Adjust net_flow names
+        original_grouper = [v for k,v in adjust_labels.items() if k.startswith('GROUPER')]
+        nodes_net_flow = nodes_net_flow.reset_index().rename(columns=adjust_labels).set_index(original_grouper)
+        nodes_net_flow.columns.name = adjust_labels['AMOUNT']
+
+    return nodes_net_flow
+
+
 def _get_nodes_gross_flow(df, grouper=None, adjust_labels=None):
     inflow, outflow = _get_nodes_flows(df, grouper=grouper)
     nodes_gross_flow = pd.concat([inflow, outflow], axis=1).fillna(0).sort_index()
     nodes_gross_flow['GROSS_TOTAL'] = nodes_gross_flow[['IN', 'OUT']].sum(1)
+    nodes_gross_flow = nodes_gross_flow[nodes_gross_flow.GROSS_TOTAL > 0]
 
     # if set(_get_all_nodes(f)) != set(all_df_nodes):
     #     group_nodes_gross_flow.reindex(all_df_nodes, fill_value=0).sort_index()
