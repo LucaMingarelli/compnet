@@ -322,32 +322,37 @@ class Graph:
         if ret:
             return self.properties
 
-    def _bilateral_compression(self, df: pd.DataFrame):
+    def _bilateral_compression(self, df: pd.DataFrame, grouper=None):
         """
         Returns bilaterally compressed network.
-        Bilateral compression compresses exclusively multiple trades existing between two nodes.
+        Bilateral compression compresses exclusively multiple trades existing between the same pair of nodes.
         Args:
             df: pandas.DataFrame containing three columns SOURCE, TARGET, AMOUNT
+            grouper: ...
 
         Returns:
             pandas.DataFrame containing edge list of bilaterally compressed network
         """
-        rel_lab = df.SOURCE.astype(str) + self.__SEP + df.TARGET.astype(str)
-        bil_rel = (df.SOURCE.astype(str).apply(lambda x: [x]) +
-                   df.TARGET.astype(str).apply(lambda x: [x])
-                   ).apply(sorted).apply(lambda l: self.__SEP.join(l))
+        grper_str = ','.join(grouper) + ',' if isinstance(grouper, list) else f'{grouper},' if grouper is not None else ''
+        int_list = ','.join([str(n + 1) for n in range(2 + len(grouper) if isinstance(grouper, list) else 3)]) if grouper is not None else '1,2'
+        rf = duckdb.sql(f"""WITH net AS (SELECT {grper_str}
+                                                CASE WHEN SOURCE < TARGET THEN SOURCE ELSE TARGET END AS node1,
+                                                CASE WHEN SOURCE < TARGET THEN TARGET ELSE SOURCE END AS node2,
+                                                SUM(CASE WHEN SOURCE < TARGET THEN AMOUNT ELSE -AMOUNT END) AS net_amount
+                                         FROM df
+                                         GROUP BY {int_list})
+                             SELECT {grper_str}
+                                    CASE WHEN net_amount > 0 THEN node1 ELSE node2 END AS SOURCE,
+                                    CASE WHEN net_amount > 0 THEN node2 ELSE node1 END AS TARGET,
+                                    ABS(net_amount) AS AMOUNT
+                             FROM net
+                             WHERE net_amount <> 0
+                             ORDER BY {int_list};
+                        """).to_df()
 
-        rf = df.set_index(bil_rel)
-        rf['AMOUNT'] *= (1 - 2 * (rel_lab != bil_rel).astype(int)).values
+        return rf
 
-        rf = rf.sort_values(by=['SOURCE', 'AMOUNT']).reset_index().groupby('index').AMOUNT.sum().reset_index()
-        rf = pd.concat([pd.DataFrame.from_records(rf['index'].str.split(self.__SEP).values,
-                                                  columns=['SOURCE', 'TARGET']),
-                        rf],
-                       axis=1).drop(columns='index')
-        return _flip_neg_amnts(rf)
-
-    def _conservative_compression(self, df: pd.DataFrame):
+    def _conservative_compression(self, df: pd.DataFrame, grouper=None):
         """
         Returns conservatively compressed network.
         Conservative compression only reduces or removes existing edges (trades)
@@ -357,6 +362,7 @@ class Graph:
         acyclic graph (DAG).
         Args:
             df: pandas.DataFrame containing three columns SOURCE, TARGET, AMOUNT
+            grouper: ...
 
         Returns:
             pandas.DataFrame containing edge list of conservatively compressed network
@@ -391,7 +397,7 @@ class Graph:
         edgs['AMOUNT'] = amnt
         return edgs
 
-    def _non_conservative_compression_MAX(self, df: pd.DataFrame):
+    def _non_conservative_compression_MAX(self, df: pd.DataFrame, grouper=None):
         """
         Returns non-conservatively compressed network.
         Non-conservative compression not only reduces or removes existing edges (trades)
@@ -402,6 +408,7 @@ class Graph:
         Requirements of numba version and llvm
         Args:
             df:
+            grouper:
 
         Returns:
 
@@ -431,11 +438,12 @@ class Graph:
         fx['AMOUNT'] = EL
         return fx
 
-    def _non_conservative_compression_ED(self, df: pd.DataFrame):
+    def _non_conservative_compression_ED(self, df: pd.DataFrame, grouper=None):
         """
         Returns the non-conservative equally-distributed compressed network.
         Args:
             df: pandas.DataFrame containing three columns SOURCE, TARGET, AMOUNT
+            grouper: ...
 
         Returns:
             pandas.DataFrame containing edge list of non-conservative equally-distributed compressed network
@@ -518,19 +526,22 @@ class Graph:
         else:
             raise Exception(f'Type {type} not recognised: please input either of NC-ED, NC-MAX, C, or bilateral.')
 
-        if self.__GROUPER:
-            def clean_compressor(f):
-                compressed_df = compressor(f.drop(columns=self.__GROUPER))
-                compressed_df[self.__GROUPER] = f[self.__GROUPER].drop_duplicates().values[0]
-                return compressed_df
-            grpd_df = df.groupby(self.__GROUPER)
-            if progress:
-                tqdm.pandas()
-                df_compressed = grpd_df.progress_apply(clean_compressor).reset_index(drop=True)
-            else:
-                df_compressed = grpd_df.apply(clean_compressor).reset_index(drop=True)
+        if type.lower()=='bilateral':
+            df_compressed = self._bilateral_compression(df, grouper=self.__GROUPER)
         else:
-            df_compressed = compressor(df)
+            if self.__GROUPER:
+                def clean_compressor(f):
+                    compressed_df = compressor(f.drop(columns=self.__GROUPER), grouper=None)
+                    compressed_df[self.__GROUPER] = f[self.__GROUPER].drop_duplicates().values[0]
+                    return compressed_df
+                grpd_df = df.groupby(self.__GROUPER)
+                if progress:
+                    tqdm.pandas()
+                    df_compressed = grpd_df.progress_apply(clean_compressor).reset_index(drop=True)
+                else:
+                    df_compressed = grpd_df.apply(clean_compressor).reset_index(drop=True)
+            else:
+                df_compressed = compressor(df)
 
         if _check_compr and self.__GROUPER is None:
             self._check_compression(df=df, df_compressed=df_compressed, grouper=self.__GROUPER)

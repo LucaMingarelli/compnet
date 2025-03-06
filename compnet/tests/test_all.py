@@ -24,11 +24,13 @@ sample_derrico = pd.DataFrame([['Node A','Node B', 5],
 class Test_DErrico:
     def test_conservative_compression(self):
         g = cn.Graph(df=sample_derrico)
+        bi_comp = g.compress(type='bilateral', verbose=True)
         c_comp = g.compress(type='c', verbose=True)
         ncmax_comp = g.compress(type='nc-max', verbose=True)
         nced__comp = g.compress(type='nc-ed', verbose=True)
 
         assert g.GMS==35 and g.CMS==15 and g.EMS==20
+        assert bi_comp.GMS==35 and bi_comp.CMS==15 and bi_comp.EMS==20
         assert c_comp.GMS == 20 and c_comp.CMS == 15 and c_comp.EMS == 5
         assert ncmax_comp.GMS == 15 and ncmax_comp.CMS == 15 and ncmax_comp.EMS == 0
         assert nced__comp.GMS == 15 and nced__comp.CMS == 15 and nced__comp.EMS == 0
@@ -38,6 +40,8 @@ class Test_DErrico:
                      target='borrower',
                      amount='amount',
                      grouper=['date', 'collateral'])
+
+        c_comp = g.compress(type='bilateral', verbose=False)
         c_comp = g.compress(type='c', verbose=False)
         ncmax_comp = g.compress(type='nc-max', verbose=False)
         nced__comp = g.compress(type='nc-ed', verbose=False)
@@ -67,6 +71,7 @@ class TestCompression:
                                         'B': {'2025-02-10': -5.0, '2025-02-11': -1.0, '2025-02-12': 3.0},
                                         'C': {'2025-02-10': 15.0, '2025-02-11': 15.0, '2025-02-12': 15.0}}
 
+        bi_comp = g.compress(type='bilateral')
         c_comp = g.compress(type='c')
         ncmax_comp = g.compress(type='nc-max')
         nced__comp = g.compress(type='nc-ed')
@@ -76,6 +81,7 @@ class TestCompression:
 
         g.describe()
 
+        bi_comp = g.compress(type='bilateral')
         c_comp = g.compress(type='c')
         ncmax_comp = g.compress(type='nc-max')
         nced__comp = g.compress(type='nc-ed')
@@ -87,7 +93,8 @@ class TestCompression:
         assert (bil_compr.AMOUNT == [5, 15]).all()
         assert (bil_compr.net_flow == cn.Graph(sample_bilateral).net_flow).all()
 
-        assert (cn.Graph(sample_noncons2).compress(type='bilateral').AMOUNT == [10, 5, 20]).all()
+        gbi_el = cn.Graph(sample_noncons2).compress(type='bilateral').edge_list.set_index(['SOURCE', 'TARGET']).AMOUNT
+        assert (gbi_el[('A', 'B')], gbi_el[('B', 'C')], gbi_el[('C', 'A')]) == (10, 20, 5)
 
     def test_compress_NC_ED(self):
         dsc = cn.Graph(sample_noncons4).describe(ret=True)
