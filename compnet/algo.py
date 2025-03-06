@@ -7,6 +7,7 @@
 import numpy as np, pandas as pd
 import numba, networkx as nx, warnings
 from tabulate import tabulate
+import duckdb
 from tqdm import tqdm
 from functools import lru_cache
 from typing import Union
@@ -23,25 +24,15 @@ def _flip_neg_amnts(df):
     return f
 
 def _get_all_nodes(df):
-    return sorted(set(df['SOURCE']).union(df['TARGET']))
+    return duckdb.sql("""SELECT DISTINCT SOURCE AS entity FROM df 
+                         UNION 
+                         SELECT DISTINCT TARGET AS entity FROM df 
+                         ORDER BY entity
+                      """).to_df().entity.to_list()
 
-def _get_nodes_net_flow(df, grouper=None, adjust_labels=None, progress=False):
-    all_df_nodes = _get_all_nodes(df)
-    def _get_group_nodes_net_flow(f):
-        group_nodes_net_flow = pd.concat([f.groupby('SOURCE').AMOUNT.sum(),
-                          f.groupby('TARGET').AMOUNT.sum()],
-                          axis=1).fillna(0).T.diff().iloc[-1, :]
-        if set(_get_all_nodes(f))!=set(all_df_nodes):
-            return group_nodes_net_flow.reindex(all_df_nodes, fill_value=0).sort_index()
-        else:
-            return group_nodes_net_flow.sort_index()
-
-    if progress:
-        tqdm.pandas(desc="Computing net flows", postfix=None)
-        nodes_net_flow = df.groupby(grouper).progress_apply(_get_group_nodes_net_flow) if grouper else _get_group_nodes_net_flow(df)
-    else:
-        nodes_net_flow = df.groupby(grouper).apply(_get_group_nodes_net_flow) if grouper else _get_group_nodes_net_flow(df)
-    _WARNING_MISSING_NODES = True # Re-enable warnings (this prevents printing warnings for each group)
+def _get_nodes_net_flow(df, grouper=None, adjust_labels=None):
+    inflow, outflow = _get_nodes_flows(df, grouper=grouper)
+    nodes_net_flow = pd.concat([outflow, inflow], axis=1).fillna(0).T.diff().iloc[-1, :]
 
     if grouper and adjust_labels:  # Adjust net_flow names
         original_grouper = [v for k,v in adjust_labels.items() if k.startswith('GROUPER')]
@@ -50,26 +41,33 @@ def _get_nodes_net_flow(df, grouper=None, adjust_labels=None, progress=False):
 
     return nodes_net_flow
 
+def _get_nodes_flows(df, grouper=None):
+    grper_str = ','.join(grouper) + ',' if isinstance(grouper, list) else f'{grouper},' if grouper is not None else ''
+    int_list = ','.join([str(n + 1) for n in
+                         range(1 + len(grouper) if isinstance(grouper, list) else 2)]) if grouper is not None else '1'
+    set_idx = (grouper if isinstance(grouper, list) else [grouper] if grouper is not None else []) + ['ENTITY']
+    outflow = duckdb.sql(f"""SELECT {grper_str} SOURCE AS ENTITY, SUM(AMOUNT) AS 'OUT' 
+                            FROM df 
+                            GROUP BY {int_list} ORDER BY {int_list}
+                         """).to_df().set_index(set_idx)
+    inflow = duckdb.sql(f"""SELECT {grper_str} TARGET AS ENTITY, SUM(AMOUNT) AS 'IN' 
+                             FROM df 
+                             GROUP BY {int_list} ORDER BY {int_list}
+                          """).to_df().set_index(set_idx)
+    return inflow, outflow
 
-def _get_nodes_gross_flow(df, grouper=None, adjust_labels=None, progress=False):
-    all_df_nodes = _get_all_nodes(df)
-    def _get_group_nodes_gross_flow(f):
-        group_nodes_gross_flow = pd.concat([f.groupby('SOURCE').AMOUNT.sum(),
-                                           f.groupby('TARGET').AMOUNT.sum()],
-                                           axis=1).fillna(0)
-        group_nodes_gross_flow.index.name = 'ENTITY'
-        group_nodes_gross_flow.columns = 'OUT', 'IN'
-        group_nodes_gross_flow['GROSS_TOTAL'] = group_nodes_gross_flow.sum(1)
-        if set(_get_all_nodes(f))!=set(all_df_nodes):
-            return group_nodes_gross_flow.reindex(all_df_nodes, fill_value=0).sort_index()
-        else:
-            return group_nodes_gross_flow.sort_index()
 
-    if progress:
-        tqdm.pandas(desc="Computing gross flows", postfix=None)
-        nodes_gross_flow = df.groupby(grouper).progress_apply(_get_group_nodes_gross_flow) if grouper else _get_group_nodes_gross_flow(df)
-    else:
-        nodes_gross_flow = df.groupby(grouper).apply(_get_group_nodes_gross_flow) if grouper else _get_group_nodes_gross_flow(df)
+def _get_nodes_gross_flow(df, grouper=None, adjust_labels=None):
+    inflow, outflow = _get_nodes_flows(df, grouper=grouper)
+    nodes_gross_flow = pd.concat([inflow, outflow], axis=1).fillna(0).sort_index()
+    nodes_gross_flow['GROSS_TOTAL'] = nodes_gross_flow[['IN', 'OUT']].sum(1)
+
+    # if set(_get_all_nodes(f)) != set(all_df_nodes):
+    #     group_nodes_gross_flow.reindex(all_df_nodes, fill_value=0).sort_index()
+    # else:
+    #     group_nodes_gross_flow.sort_index()
+
+
     _WARNING_MISSING_NODES = True # Re-enable warnings (this prevents printing warnings for each group)
 
     if grouper and adjust_labels:  # Adjust net_flow names
@@ -207,7 +205,7 @@ class Graph:
     def __init__(self, df: pd.DataFrame,
                  source: str='SOURCE', target: str='TARGET', amount: str='AMOUNT',
                  grouper: Union[str, list]=None,
-                 progress=False):
+                 ):
         """
         Initialises compnet.Group object.
 
@@ -238,9 +236,9 @@ class Graph:
             warnings.warn(f"\n\nSome nodes (SOURCE `{source}` or TARGET `{target}`) are missing from some groups (GROUPER `{grouper}`).\n"
                           "These will be filled with zeros.\n")
 
-        self.gross_flow = _get_nodes_gross_flow(df=self.edge_list, grouper=self.__GROUPER, adjust_labels=self._labels_imap, progress=progress)
-        self.net_flow = self.gross_flow['IN'] - self.gross_flow['OUT']
-        # self.net_flow = _get_nodes_net_flow(self.edge_list, grouper=self.__GROUPER, adjust_labels=self._labels_imap, progress=progress)
+        self.gross_flow = _get_nodes_gross_flow(df=self.edge_list, grouper=self.__GROUPER, adjust_labels=self._labels_imap)
+        self.net_flow = (self.gross_flow['IN'] - self.gross_flow['OUT'])
+        # self.net_flow == _get_nodes_net_flow(df=self.edge_list, grouper=self.__GROUPER, adjust_labels=self._labels_imap)
 
         self.describe(print_props=False, ret=False)  # Builds GMS, CMS, EMS, and properties
 

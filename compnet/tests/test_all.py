@@ -34,10 +34,10 @@ class Test_DErrico:
         assert nced__comp.GMS == 15 and nced__comp.CMS == 15 and nced__comp.EMS == 0
 
         g = cn.Graph(df=sample_twogrouper,
-                        source='lender',
-                        target='borrower',
-                        amount='amount',
-                        grouper=['date', 'collateral'])
+                     source='lender',
+                     target='borrower',
+                     amount='amount',
+                     grouper=['date', 'collateral'])
         c_comp = g.compress(type='c', verbose=False)
         ncmax_comp = g.compress(type='nc-max', verbose=False)
         nced__comp = g.compress(type='nc-ed', verbose=False)
@@ -81,7 +81,7 @@ class TestCompression:
         nced__comp = g.compress(type='nc-ed')
 
     def test_compress_bilateral(self):
-        net = cn.Graph(sample_bilateral)
+        net = cn.Graph(df=sample_bilateral)
         bil_compr = net.compress(type='bilateral')
 
         assert (bil_compr.AMOUNT == [5, 15]).all()
@@ -178,14 +178,7 @@ class TestCompression:
                  amount='amount',
                  grouper='date')
 
-    def test_progress(self):
-        g = cn.Graph(df=sample_twogrouper,
-                        source='lender',
-                        target='borrower',
-                        amount='amount',
-                        grouper=['date', 'collateral'],
-                        progress=True)
 
-        cn.Graph(sample_derrico, progress=False)
+
 
 

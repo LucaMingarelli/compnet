@@ -5,5 +5,5 @@ scipy
 tqdm
 tabulate
 networkx
-
+duckdb
 
