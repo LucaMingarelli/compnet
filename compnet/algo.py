@@ -185,7 +185,7 @@ def compression_factor(df1, df2, p=2, grouper=None):
     if str(p).lower()=='ems_ratio':  # In the bilateral compression case this corresponds to the limit p=∞
         CR = 1- compression_efficiency(df=df1, df_compressed=df2, grouper=grouper)
     else:
-        N = len(set(df1[['SOURCE', 'TARGET']].values.flatten()))
+        # N = len(set(df1[['SOURCE', 'TARGET']].values.flatten()))
         Lp1 = (df1.AMOUNT.abs()**p).sum() ** (1/p) # * (2 / (N*(N-1)))**(1/p)
         Lp2 = (df2.AMOUNT.abs()**p).sum() ** (1/p) # * (2 / (N*(N-1)))**(1/p)
         CR = Lp2 / Lp1
@@ -216,7 +216,7 @@ class Graph:
             source: Name of the column corresponding to source nodes. Default is 'SOURCE'.
             target: Name of the column corresponding to target nodes. Default is 'TARGET'.
             amount: Name of the column corresponding to weights / amounts of corresponding source-target edge. Default is 'AMOUNT'.
-            grouper: If an additional dimension exists (e.g. a date dimension), passing the corresponding column name will result in the creation of a graph for each category in the grouper column.
+            grouper: If an additional dimension exists (e.g. a date dimension), passing the corresponding column name (or list of column names) will result in the creation of a graph for each category in the grouper column.
         """
         from compnet import SUPPRESS_WARNINGS
         if isinstance(grouper, Sequence) and not isinstance(grouper, str):
@@ -330,7 +330,7 @@ class Graph:
         Bilateral compression compresses exclusively multiple trades existing between the same pair of nodes.
         Args:
             df: pandas.DataFrame containing three columns SOURCE, TARGET, AMOUNT
-            grouper: ...
+            grouper: If an additional dimension exists (e.g. a date dimension), passing the corresponding column name (or list of column names) will result in the creation of a graph for each category in the grouper column.
 
         Returns:
             pandas.DataFrame containing edge list of bilaterally compressed network
@@ -364,7 +364,7 @@ class Graph:
         acyclic graph (DAG).
         Args:
             df: pandas.DataFrame containing three columns SOURCE, TARGET, AMOUNT
-            grouper: ...
+            grouper: If an additional dimension exists (e.g. a date dimension), passing the corresponding column name (or list of column names) will result in the creation of a graph for each category in the grouper column.
 
         Returns:
             pandas.DataFrame containing edge list of conservatively compressed network
@@ -374,21 +374,28 @@ class Graph:
         edgs = f.set_index(f.SOURCE + self.__SEP + f.TARGET)[['AMOUNT']].T
         @lru_cache()
         def loop2edg(tpl):
+            """Takes a tuple of nodes as input, defining the 'loop' or cycle,
+               and returns the associated list of edges
+            """
             return list(f'{x}{self.__SEP}{y}' for x, y in zip((tpl[-1],) + tpl[:-1], tpl))
         @lru_cache()
         def get_minedg(cycle):
+            """Returns the smallest edge weight,
+               from the list of weights associated with the edges of the cycle passed as input.
+            """
             return edgs[loop2edg(cycle)].T.min().AMOUNT
 
         G = nx.DiGraph(list(f.iloc[:, :2].values))
+        # For each cycle, find the associated smallest edge weight, multiplied by the length of the cycle ()
         cycles_len_minedg = [(tuple(c), len(c) * get_minedg(tuple(c)))
                              for c in nx.simple_cycles(G)]
         while cycles_len_minedg:
             idx = np.argmax((c[1] for c in cycles_len_minedg))
-            cycle = cycles_len_minedg[idx][0]
+            cycle, min_edg_lencycle = cycles_len_minedg[idx]
             cls = loop2edg(cycle)
             if pd.Series(cls).isin(edgs.columns).all():
-                min_edg = edgs[cls].min(1).AMOUNT
-                drop_col = edgs[cls].columns[(edgs[cls]==min_edg).values[0]][0]
+                min_edg = edgs[cls].min(1).AMOUNT # min_edg_lencycle / len(cycle) ## [WARNING: this second option may break the == search at the next lines with floats]
+                drop_col = edgs[cls].columns[(edgs[cls]==min_edg).values[0]][0] # Edge to be removed
                 edgs[cls] -= min_edg
                 edgs.drop(columns=[drop_col], inplace=True)
             cycles_len_minedg.pop(idx)
@@ -409,8 +416,8 @@ class Graph:
         TODO: IN DOCS ADD https://github.com/sktime/sktime/issues/764
         Requirements of numba version and llvm
         Args:
-            df:
-            grouper:
+            df: pandas.DataFrame containing three columns SOURCE, TARGET, AMOUNT
+            grouper: If an additional dimension exists (e.g. a date dimension), passing the corresponding column name (or list of column names) will result in the creation of a graph for each category in the grouper column.
 
         Returns:
 
@@ -440,19 +447,33 @@ class Graph:
         fx['AMOUNT'] = EL
         return fx
 
-    def _non_conservative_compression_ED(self, df: pd.DataFrame, grouper=None):
+    def _non_conservative_compression_ED(self, df: pd.DataFrame, grouper=None, fast=True):
         """
         Returns the non-conservative equally-distributed compressed network.
         Args:
             df: pandas.DataFrame containing three columns SOURCE, TARGET, AMOUNT
-            grouper: ...
-
+            grouper: If an additional dimension exists (e.g. a date dimension), passing the corresponding column name (or list of column names) will result in the creation of a graph for each category in the grouper column.
+            fast: Use fast (duckdb based) or slow version of the algorithm. Slow version will eventually be deprecated.
         Returns:
             pandas.DataFrame containing edge list of non-conservative equally-distributed compressed network
 
         """
 
         nodes_flow = self.net_flow if df is None else _get_nodes_net_flow(df)
+        if fast:
+            nodes_flow = nodes_flow.reset_index().rename(columns={'IN': 'net_flow'})
+            return duckdb.sql("""WITH positive AS (SELECT ENTITY, net_flow
+                                                   FROM nodes_flow WHERE net_flow > 0),
+                                      negative AS (SELECT ENTITY, net_flow
+                                                   FROM nodes_flow WHERE net_flow < 0),
+                                      total_positive AS (SELECT SUM(net_flow) AS total
+                                                         FROM positive)
+                                 SELECT negative.ENTITY AS SOURCE, positive.ENTITY AS TARGET,
+                                       (-negative.net_flow * positive.net_flow) / total_positive.total AS AMOUNT
+                                 FROM negative
+                                 CROSS JOIN positive
+                                 CROSS JOIN total_positive;
+                              """).to_df()
 
         flows = nodes_flow.values
         nodes = np.array(nodes_flow.index)[flows != 0]
@@ -472,6 +493,7 @@ class Graph:
         fx = pd.DataFrame.from_records(pd.Series(cmprsd_edgs.flatten()).str.split(self.__SEP),
                                        columns=['SOURCE', 'TARGET'])
         fx['AMOUNT'] = cmprsd_flws.flatten()
+
         return fx
 
     def _check_compression(self, df: pd.DataFrame, df_compressed: pd.DataFrame, grouper: str=None):
@@ -479,6 +501,7 @@ class Graph:
         Args:
             df:
             df_compressed:
+            grouper: If an additional dimension exists (e.g. a date dimension), passing the corresponding column name (or list of column names) will result in the creation of a graph for each category in the grouper column.
 
         Returns:
 
