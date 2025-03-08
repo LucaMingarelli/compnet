@@ -499,7 +499,7 @@ class Graph:
                                       JOIN positive ON {on_grper_str1}
                                       JOIN total_positive tp ON {on_grper_str2};
                                    """).to_df()
-
+        # TODO: THIS PART BELOW CAN BE DROPPED EVENTUALLY - it's already not used anymore
         flows = nodes_flow.values
         nodes = np.array(nodes_flow.index)[flows != 0]
         flows = flows[flows != 0]
