@@ -459,21 +459,46 @@ class Graph:
 
         """
 
-        nodes_flow = self.net_flow if df is None else _get_nodes_net_flow(df)
+        nodes_flow = _get_nodes_net_flow(df, grouper=grouper)
         if fast:
             nodes_flow = nodes_flow.reset_index().rename(columns={'IN': 'net_flow'})
-            return duckdb.sql("""WITH positive AS (SELECT ENTITY, net_flow
-                                                   FROM nodes_flow WHERE net_flow > 0),
-                                      negative AS (SELECT ENTITY, net_flow
-                                                   FROM nodes_flow WHERE net_flow < 0),
-                                      total_positive AS (SELECT SUM(net_flow) AS total
-                                                         FROM positive)
-                                 SELECT negative.ENTITY AS SOURCE, positive.ENTITY AS TARGET,
-                                       (-negative.net_flow * positive.net_flow) / total_positive.total AS AMOUNT
-                                 FROM negative
-                                 CROSS JOIN positive
-                                 CROSS JOIN total_positive;
-                              """).to_df()
+
+            if grouper is None:
+                return duckdb.sql("""WITH positive AS (SELECT ENTITY, net_flow
+                                                       FROM nodes_flow WHERE net_flow > 0),
+                                          negative AS (SELECT ENTITY, net_flow
+                                                       FROM nodes_flow WHERE net_flow < 0),
+                                          total_positive AS (SELECT SUM(net_flow) AS total
+                                                             FROM positive)
+                                     SELECT negative.ENTITY AS SOURCE, positive.ENTITY AS TARGET,
+                                           (-negative.net_flow * positive.net_flow) / total_positive.total AS AMOUNT
+                                     FROM negative
+                                     CROSS JOIN positive
+                                     CROSS JOIN total_positive;
+                                  """).to_df()
+            else:
+                if not isinstance(grouper, list):
+                    grouper = [grouper]
+                grper_str = ','.join(grouper) if isinstance(grouper, list) else f'{grouper},'
+                int_list = ','.join([str(n + 1) for n in range(len(grouper) if isinstance(grouper, list) else 1)])
+                tp_grper_str = grper_str.replace('GROUPER', 'tp.GROUPER')
+                on_grper_str1 = ' AND '.join([f'negative.{grpr} = positive.{grpr}' for grpr in grouper])
+                on_grper_str2 = ' AND '.join([f'negative.{grpr} = tp.{grpr}' for grpr in grouper])
+
+                return duckdb.sql(f"""WITH positive AS (SELECT ENTITY, net_flow, {grper_str}
+                                                        FROM nodes_flow WHERE net_flow > 0),
+                                           negative AS (SELECT ENTITY, net_flow, {grper_str}
+                                                        FROM nodes_flow WHERE net_flow < 0),
+                                           total_positive AS (SELECT {grper_str}, SUM(net_flow) AS total
+                                                              FROM positive 
+                                                              GROUP BY {int_list})
+                                      SELECT negative.ENTITY AS SOURCE, positive.ENTITY AS TARGET,
+                                             (-negative.net_flow * positive.net_flow) / tp.total AS AMOUNT,
+                                             {tp_grper_str}
+                                      FROM negative
+                                      JOIN positive ON {on_grper_str1}
+                                      JOIN total_positive tp ON {on_grper_str2};
+                                   """).to_df()
 
         flows = nodes_flow.values
         nodes = np.array(nodes_flow.index)[flows != 0]
@@ -541,18 +566,20 @@ class Graph:
         """
         df = self.edge_list
         if type.lower() == 'nc-ed':
-            compressor = self._non_conservative_compression_ED
+            compressor = self._non_conservative_compression_ED  # This has been optimised via duckdb. Will not be looped.
         elif type.lower() == 'nc-max':
             compressor = self._non_conservative_compression_MAX
         elif type.lower() == 'c':
             compressor = self._conservative_compression
         elif type.lower() == 'bilateral':
-            compressor = self._bilateral_compression
+            compressor = self._bilateral_compression  # This has been optimised via duckdb. Will not be looped.
         else:
             raise Exception(f'Type {type} not recognised: please input either of NC-ED, NC-MAX, C, or bilateral.')
 
         if type.lower()=='bilateral':
             df_compressed = self._bilateral_compression(df, grouper=self.__GROUPER)
+        elif type.lower()=='nc-ed':
+            df_compressed = self._non_conservative_compression_ED(df, grouper=self.__GROUPER)
         else:
             if self.__GROUPER:
                 def clean_compressor(f):

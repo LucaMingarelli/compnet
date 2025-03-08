@@ -5,7 +5,7 @@
 """
 
 __about__ = "A package for market compression of network data."
-__version__= '0.5.2'
+__version__= '0.5.3'
 __author__ = 'Luca Mingarelli'
 __email__ = "lucamingarelli@me.com"
 __url__ = "https://github.com/LucaMingarelli/compnet"
