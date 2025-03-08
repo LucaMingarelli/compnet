@@ -21,7 +21,7 @@ setuptools.setup(
     author_email=__email__,
     description=__about__,
     url=__url__,
-    license='MIT',
+    license='CC BY-NC-SA 4.0',
     long_description=long_description,
     long_description_content_type="text/markdown",
     packages=['compnet', 'compnet.tests'],
