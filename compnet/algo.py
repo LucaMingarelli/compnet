@@ -4,14 +4,22 @@
 **Authors**: L. Mingarelli
 """
 
-import numpy as np, pandas as pd
-import numba, networkx as nx, warnings
+import numpy as np, pandas as pd, scipy as sp
+import numba, networkx as nx
 from tabulate import tabulate
 import duckdb
 from tqdm import tqdm
 from functools import lru_cache
 from typing import Union
 from collections.abc import Sequence
+
+import warnings
+
+def formatwarning(msg, *args, **kwargs):
+    # ignore everything except the message
+    return f'{msg}\n'
+
+warnings.formatwarning = formatwarning
 
 __SEP = '__<>__<>__'
 
@@ -233,8 +241,8 @@ class Graph:
                                {grouper: self.__GROUPER or 'GROUPER'} if grouper else {})}
         self._labels_imap = {v:k for k,v in self._labels_map.items()}
         self.edge_list = df[self._labels].rename(columns=self._labels_map)
-
-        if self.__GROUPER and any(set(_get_all_nodes(self.edge_list)) - set(_get_all_nodes(g)) for _, g in self.edge_list.groupby(self.__GROUPER)) and not SUPPRESS_WARNINGS:
+        all_nodes = _get_all_nodes(self.edge_list)
+        if self.__GROUPER and any(set(all_nodes) - set(_get_all_nodes(g)) for _, g in self.edge_list.groupby(self.__GROUPER)) and not SUPPRESS_WARNINGS:
             warnings.warn(f"\n\nSome nodes (SOURCE `{source}` or TARGET `{target}`) are missing from some groups (GROUPER `{grouper}`).\n"
                           "These will be filled with zeros.\n")
 
@@ -282,6 +290,51 @@ class Graph:
                        )
             dealers = dealers[dealers.dealer_ratio>0]
         return dealers
+
+    def dirichlet_energy(self, degree_type:str='net') -> pd.Series:
+        """
+        Computed the Dirichlet energy ½ ∑|L_{ij}|^2, with L the Laplacian matrix.
+        This method automatically accounts for the grouper, if any was provided.
+        Args:
+            degree_type: Either of 'net' (default) or 'gross'.
+
+        """
+        DEGREE_OPERATOR = {'net': '-', 'gross': '+'}
+
+        grouper = self.__GROUPER if isinstance(self.__GROUPER, list) else [self.__GROUPER] if self.__GROUPER is not None else None
+
+        grper_str = ','.join(grouper) + ',' if isinstance(grouper, list) else f'{grouper},' if grouper is not None else ''
+        int_list = ','.join([str(n + 1) for n in range(1+len(grouper) if isinstance(grouper, list) else 2)])  if grouper is not None else '1'
+        degree_grper_str = ','.join([f'COALESCE(i.{g},o.{g}) AS {g}' for g in grouper]) + ',' if isinstance(grouper, list) else ''
+        on_grper_str = 'i.ENTITY = o.ENTITY AND ' + ' AND '.join([f'i.{grpr} = o.{grpr}' for grpr in grouper]) if grouper is not None else 'i.ENTITY = o.ENTITY'
+
+        edgelist = self.edge_list
+        return duckdb.sql(f"""
+                  WITH InDegree AS (SELECT {grper_str} TARGET AS ENTITY, SUM(AMOUNT) AS IN_DEGREE
+                                    FROM edgelist
+                                    GROUP BY {int_list}), 
+                       OutDegree AS (SELECT {grper_str} SOURCE AS ENTITY, SUM(AMOUNT) AS OUT_DEGREE
+                                     FROM edgelist
+                                     GROUP BY {int_list}),
+                       Degree AS (SELECT {degree_grper_str}
+                                         COALESCE(i.ENTITY, o.ENTITY) AS ENTITY, 
+                                         COALESCE(i.IN_DEGREE, 0) {DEGREE_OPERATOR[degree_type]} COALESCE(o.OUT_DEGREE, 0) AS DEGREE
+                                  FROM InDegree i
+                                  FULL OUTER JOIN OutDegree o ON {on_grper_str}),
+                       LAPLACIAN AS (SELECT {grper_str}
+                                            SOURCE AS ENTITY1, TARGET AS ENTITY2, 
+                                            -AMOUNT AS LAPLACIAN_VALUE  -- Off-diagonal elements (-A)
+                                     FROM edgelist e
+                                     UNION ALL 
+                                     SELECT {grper_str} 
+                                            ENTITY AS ENTITY1, ENTITY AS ENTITY2, 
+                                            DEGREE AS LAPLACIAN_VALUE -- Diagonal elements (D)
+                                     FROM Degree)
+                 SELECT {grper_str} SUM(LAPLACIAN_VALUE*LAPLACIAN_VALUE) / 2 AS DIRICHLET_ENERGY
+                 FROM LAPLACIAN
+                 {f'GROUP BY {grper_str[:-1]}' if grper_str else ''};
+               """).to_df().rename(columns={v:k for k,v in self._labels_map.items()}).set_index([k for k,v in self._labels_map.items() if v.startswith('GROUPER')]).DIRICHLET_ENERGY
+
 
     def _grouper_rename(self):
         if self._multi_grouper:
@@ -727,3 +780,26 @@ def compressed_network_conservative(df: pd.DataFrame) -> pd.DataFrame:
 
 
 
+# def adjacency_matrix(edgelist):
+#     edgelist = edgelist[['SOURCE', 'TARGET', 'AMOUNT']]
+#     nodes = _get_all_nodes(edgelist)
+#     nodes_idx = {node: i for i, node in enumerate(nodes)}
+#     row, col, weight = edgelist.replace(nodes_idx).values.T
+#     # Create sparse adjacency matrix
+#     adj_matrix = sp.sparse.coo_matrix((weight, (row, col)), shape=(len(nodes), len(nodes)))
+#     # print(adj_matrix.toarray())
+#     return adj_matrix
+#
+#
+# def laplacian(edgelist):
+#     net_flow = _get_nodes_net_flow(edgelist)
+#     num_nodes = len(net_flow)
+#     # D = np.eye(num_nodes) * self.net_flow.values
+#     ids = np.arange(num_nodes)
+#     D = sp.sparse.coo_matrix((net_flow.values, (ids, ids)),
+#                              shape=(num_nodes, num_nodes))
+#     return D - adjacency_matrix(edgelist)
+#
+#
+# def dirichlet_energy(edgelist):
+#     return (np.abs(laplacian(edgelist))**2).sum() / 2

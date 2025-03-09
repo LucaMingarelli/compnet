@@ -46,6 +46,13 @@ class Test_DErrico:
         ncmax_comp = g.compress(type='nc-max', verbose=False)
         nced__comp = g.compress(type='nc-ed', verbose=False)
 
+    def test_dirichlet_energy(self):
+        g = cn.Graph(df=sample_twogrouper,
+                     source='lender',
+                     target='borrower',
+                     amount='amount',
+                     grouper=['date', 'collateral'])
+        g.dirichlet_energy()
 
 
 class TestCompression:
@@ -75,6 +82,7 @@ class TestCompression:
         c_comp = g.compress(type='c')
         ncmax_comp = g.compress(type='nc-max')
         nced__comp = g.compress(type='nc-ed')
+        g.dirichlet_energy()
 
         # Multiple groupers
         g = cn.Graph(df=sample_twogrouper, source='lender', target='borrower', amount='amount', grouper=['date', 'collateral'])
@@ -85,6 +93,7 @@ class TestCompression:
         c_comp = g.compress(type='c')
         ncmax_comp = g.compress(type='nc-max')
         nced__comp = g.compress(type='nc-ed')
+        g.dirichlet_energy()
 
     def test_compress_bilateral(self):
         net = cn.Graph(df=sample_bilateral)
