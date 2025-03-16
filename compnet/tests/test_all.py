@@ -194,7 +194,17 @@ class TestCompression:
                  amount='amount',
                  grouper='date')
 
+class TestClearing:
+    def test_centrally_clear:
+        g = cn.Graph(sample_derrico)
+        assert g.centrally_clear(net=False).GMS == 70
+        assert g.centrally_clear(net=True).GMS == 30
+    def test_cc_gms(self):
+        g = cn.Graph(df=sample_twogrouper, source='lender', target='borrower', amount='amount',
+                     grouper=['date', 'collateral'])
 
+        assert (2*g.GMS == g.centrally_clear(net=False).GMS).all() # Doubling of GMS
+        assert (g.CMS == g.centrally_clear(net=False).CMS).all()   # Invariance of CMS
 
 
 

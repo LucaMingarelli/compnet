@@ -681,11 +681,11 @@ class Graph:
                                        self.edge_list.assign(TARGET=ccp_name)])
         if ccp_name in self.net_flow.index:
             cleared_edge_list = cleared_edge_list[(cleared_edge_list.SOURCE!=ccp_name)|(cleared_edge_list.TARGET!=ccp_name)]
-        cleared_g = Graph(cleared_edge_list.rename(columns=self._labels_map),
-                          source=self._labels_map['SOURCE'],
-                          target=self._labels_map['TARGET'],
-                          amount=self._labels_map['AMOUNT'],
-                          grouper=self.__GROUPER)
+        cleared_g = Graph(cleared_edge_list.rename(columns=self._labels_imap),
+                          source=self._labels_imap['SOURCE'],
+                          target=self._labels_imap['TARGET'],
+                          amount=self._labels_imap['AMOUNT'],
+                          grouper=self._grouper_rename())
         if net:
             return cleared_g.compress(type='bilateral')
         else:
