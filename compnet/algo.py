@@ -335,7 +335,6 @@ class Graph:
                  {f'GROUP BY {grper_str[:-1]}' if grper_str else ''};
                """).to_df().rename(columns={v:k for k,v in self._labels_map.items()}).set_index([k for k,v in self._labels_map.items() if v.startswith('GROUPER')]).DIRICHLET_ENERGY
 
-
     def _grouper_rename(self):
         if self._multi_grouper:
             grouper_rename = [v for k,v in self._labels_imap.items() if k in self.__GROUPER]
@@ -666,6 +665,32 @@ class Graph:
                       if v is not None and not v.lower().startswith('grouper')}
             kwargs = {**kwargs, **dict(grouper=self._grouper_rename())}
             return Graph(df_compressed, **kwargs)
+
+    def centrally_clear(self, ccp_name:str='CCP', net:bool=False):
+        """
+        Clears all positions centrally through a central clearing counterparty named `ccp_name`:
+        if `ccp_name` does not exist already among the list of entities (in either source or target) it is introduced.
+        Args:
+            ccp_name: Name of the central clearing counterparty. Default is 'CCP'. If `ccp_name` does not exist already among the list of entities (in either source or target) it is introduced.
+            net: If True returns the centrally cleared graph with bilateral compression.
+
+        Returns:
+            New Graph object, with all positions centrally cleared through `ccp_name`.
+        """
+        cleared_edge_list = pd.concat([self.edge_list.assign(SOURCE=ccp_name),
+                                       self.edge_list.assign(TARGET=ccp_name)])
+        if ccp_name in self.net_flow.index:
+            cleared_edge_list = cleared_edge_list[(cleared_edge_list.SOURCE!=ccp_name)|(cleared_edge_list.TARGET!=ccp_name)]
+        cleared_g = Graph(cleared_edge_list.rename(columns=self._labels_map),
+                          source=self._labels_map['SOURCE'],
+                          target=self._labels_map['TARGET'],
+                          amount=self._labels_map['AMOUNT'],
+                          grouper=self.__GROUPER)
+        if net:
+            return cleared_g.compress(type='bilateral')
+        else:
+            return cleared_g
+
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):

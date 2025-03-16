@@ -1,7 +1,7 @@
 # <img src="compnet/res/icons/Network_Compression.png" width="120px"/> *compnet* — Compression for Market Network data 
 
 [![CircleCI](https://dl.circleci.com/status-badge/img/gh/LucaMingarelli/compnet/tree/main.svg?style=svg&circle-token=5c008782a97bdc48aa09b6d25d815a563d572595)](https://dl.circleci.com/status-badge/redirect/gh/LucaMingarelli/compnet/tree/main)
-[![version](https://img.shields.io/badge/version-0.6.1-success.svg)](#)
+[![version](https://img.shields.io/badge/version-0.7.0-success.svg)](#)
 [![PyPI Latest Release](https://img.shields.io/pypi/v/compnet.svg)](https://pypi.org/project/compnet/)
 [![Downloads](https://static.pepy.tech/badge/compnet)](https://pepy.tech/project/compnet)
 [![License](https://img.shields.io/pypi/l/compnet.svg)](https://github.com/LucaMingarelli/compnet/blob/master/LICENSE.md)
@@ -277,7 +277,7 @@ Compression Factor CF(p=2) = 0.402
 ```
 
 Although in this case both the equally-distributed and maximal 
-compressions yield the same, this needs not be the case in general.
+compressions yield the same result, this needs not be the case in general.
 
 Considering for instance the network
 ```python
@@ -303,7 +303,7 @@ compnet.Graph object:
 with compression efficiency and factor
 ```text
 Compression Efficiency CE = 1.0
-Compression Factor CF(p=2) = 0.46251615011343006
+Compression Factor CF(p=2) = 0.463
 ```
 Maximally non-conservative compression yields instead
 
@@ -377,13 +377,62 @@ the time evolution of the network's gross, compressed, and excess sizes:
 
 As before, this data is also accessible as a `pandas.DataFrame` via the attribute `g.properties`.
 
+## Central clearing
+
+The method `centrally_clear` allows to clear all positions 
+through a common counterparty specified via the parameter `ccp_name`,
+introducing a new entity should `ccp_name` not be part of the list of entities already. 
 
 
 
+For instance
 
+```python
+el = pd.DataFrame([['A','B', 4],
+                   ['B','C', 3],
+                   ['C','D', 5],
+                   ],
+                  columns=['SOURCE', 'TARGET' ,'AMOUNT'])
+cn.Graph(el).centrally_clear()
+```
 
+returns 
 
+```
+┌──────────┬──────────┬──────────┐
+│ SOURCE   │ TARGET   │   AMOUNT │
+├──────────┼──────────┼──────────┤
+│ CCP      │ B        │        4 │
+│ CCP      │ C        │        3 │
+│ CCP      │ D        │        5 │
+│ A        │ CCP      │        4 │
+│ B        │ CCP      │        3 │
+│ C        │ CCP      │        5 │
+└──────────┴──────────┴──────────┘
+```
 
+By definition, the central clearing operation doubles the Graph's GMS, 
+while CMS is invariant.
+
+It is also possible to return directly the bilaterally compressed graph as
+```python
+cn.Graph(el).centrally_clear(net=True)
+```
+
+which yields
+
+```
+┌──────────┬──────────┬──────────┐
+│ SOURCE   │ TARGET   │   AMOUNT │
+├──────────┼──────────┼──────────┤
+│ A        │ CCP      │        4 │
+│ C        │ CCP      │        2 │
+│ CCP      │ B        │        1 │
+│ CCP      │ D        │        5 │
+└──────────┴──────────┴──────────┘
+```
+
+Any grouper specified on `Graph` is automatically accounted for.
 
 
 

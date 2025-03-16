@@ -1,6 +1,7 @@
 .*
 */__pycache__/*
 *cpython*
+_paper/
 PROOFS.md
 !.gitignore
 !.gitconfig
