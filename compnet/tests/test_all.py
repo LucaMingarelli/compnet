@@ -195,7 +195,7 @@ class TestCompression:
                  grouper='date')
 
 class TestClearing:
-    def test_centrally_clear:
+    def test_centrally_clear(self):
         g = cn.Graph(sample_derrico)
         assert g.centrally_clear(net=False).GMS == 70
         assert g.centrally_clear(net=True).GMS == 30
