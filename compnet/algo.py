@@ -701,16 +701,21 @@ class Graph:
     def __ne__(self, other):
         return not self.__eq__(other)
 
+    def _edgelist_amount(self):
+        idx_cols = list(self.edge_list.columns.drop('AMOUNT'))
+        return self.edge_list.set_index(idx_cols)
+
     def __add__(self, other):
-        self_el = self.edge_list.set_index(['SOURCE', 'TARGET'])
+        self_el = self._edgelist_amount()
         if isinstance(other, Graph):
-            other_el = other.edge_list.set_index(['SOURCE', 'TARGET'])
-            return Graph(self_el.add(other_el, fill_value=0).reset_index())
+            other_el = other._edgelist_amount()
+            return Graph(self_el.add(other_el, fill_value=0).reset_index(),
+                         grouper=self.__GROUPER)
         else:
-            return Graph((self_el+other).reset_index())
+            return Graph((self_el+other).reset_index(), grouper=self.__GROUPER)
 
     def __neg__(self):
-        return Graph((-self.edge_list.set_index(['SOURCE', 'TARGET'])).reset_index())
+        return Graph((-self._edgelist_amount()).reset_index(), grouper=self.__GROUPER)
 
     def __sub__(self, other):
         return self.__add__(-other)
@@ -725,7 +730,7 @@ class Graph:
         if isinstance(other, Graph):
             raise ValueError("Multiplication between two Graph objects is not defined.")
         else:
-            return Graph((other*self.edge_list.set_index(['SOURCE', 'TARGET'])).reset_index())
+            return Graph((other*self._edgelist_amount()).reset_index(), grouper=self.__GROUPER)
 
     def __rmul__(self, other):
         return self * other
@@ -734,10 +739,10 @@ class Graph:
         if isinstance(other, Graph):
             raise ValueError("Division between two Graph objects is not defined.")
         else:
-            return Graph((self.edge_list.set_index(['SOURCE', 'TARGET'])/other).reset_index())
+            return Graph((self._edgelist_amount()/other).reset_index(), grouper=self.__GROUPER)
 
     def inverse(self):
-        return Graph((1/self.edge_list.set_index(['SOURCE', 'TARGET'])).reset_index())
+        return Graph((1/self._edgelist_amount()).reset_index(), grouper=self.__GROUPER)
 
     def __rtruediv__(self, other):
         return self.inverse() * other
