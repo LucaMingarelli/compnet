@@ -702,20 +702,28 @@ class Graph:
         return not self.__eq__(other)
 
     def _edgelist_amount(self):
-        idx_cols = list(self.edge_list.columns.drop('AMOUNT'))
-        return self.edge_list.set_index(idx_cols)
+        idx_cols = list(self.edge_list.rename(columns=self._labels_imap).columns.drop(self._labels_imap['AMOUNT']))
+        return self.edge_list.rename(columns=self._labels_imap).set_index(idx_cols)
+
+    def _original_kwargs(self):
+        return dict(source=self._labels_imap['SOURCE'],
+                    target=self._labels_imap['TARGET'],
+                    amount=self._labels_imap['AMOUNT'],
+                    grouper=self._grouper_rename())
 
     def __add__(self, other):
         self_el = self._edgelist_amount()
         if isinstance(other, Graph):
             other_el = other._edgelist_amount()
             return Graph(self_el.add(other_el, fill_value=0).reset_index(),
-                         grouper=self.__GROUPER)
+                         **self._original_kwargs())
         else:
-            return Graph((self_el+other).reset_index(), grouper=self.__GROUPER)
+            return Graph((self_el+other).reset_index(),
+                         **self._original_kwargs())
 
     def __neg__(self):
-        return Graph((-self._edgelist_amount()).reset_index(), grouper=self.__GROUPER)
+        return Graph((-self._edgelist_amount()).reset_index(),
+                     **self._original_kwargs())
 
     def __sub__(self, other):
         return self.__add__(-other)
@@ -730,7 +738,8 @@ class Graph:
         if isinstance(other, Graph):
             raise ValueError("Multiplication between two Graph objects is not defined.")
         else:
-            return Graph((other*self._edgelist_amount()).reset_index(), grouper=self.__GROUPER)
+            return Graph((other*self._edgelist_amount()).reset_index(),
+                         **self._original_kwargs())
 
     def __rmul__(self, other):
         return self * other
@@ -739,10 +748,12 @@ class Graph:
         if isinstance(other, Graph):
             raise ValueError("Division between two Graph objects is not defined.")
         else:
-            return Graph((self._edgelist_amount()/other).reset_index(), grouper=self.__GROUPER)
+            return Graph((self._edgelist_amount()/other).reset_index(),
+                         **self._original_kwargs())
 
     def inverse(self):
-        return Graph((1/self._edgelist_amount()).reset_index(), grouper=self.__GROUPER)
+        return Graph((1/self._edgelist_amount()).reset_index(),
+                     **self._original_kwargs())
 
     def __rtruediv__(self, other):
         return self.inverse() * other
