@@ -206,5 +206,29 @@ class TestClearing:
         assert (2*g.GMS == g.centrally_clear(net=False).GMS).all() # Doubling of GMS
         assert (g.CMS == g.centrally_clear(net=False).CMS).all()   # Invariance of CMS
 
+class TestArithmetics:
+    def test_add(self):
+        g1 = cn.Graph(sample0)
+        g2 = cn.Graph(sample_bilateral)
+        assert (g1+g2).AMOUNT.sum() == g1.AMOUNT.sum()+g2.AMOUNT.sum()
+        assert (g1+2).AMOUNT.sum() == g1.AMOUNT.sum() + 2*len(g1.AMOUNT)
+        assert (3+g1).AMOUNT.sum() == g1.AMOUNT.sum() + 3*len(g1.AMOUNT)
+    def test_sub(self):
+        g1 = cn.Graph(sample0)
+        g2 = cn.Graph(sample_bilateral)
+        assert (g1-g2).AMOUNT.sum() == g1.AMOUNT.sum()-g2.AMOUNT.sum()
+        assert (g1 - 2).AMOUNT.sum() == g1.AMOUNT.sum() - 2 * len(g1.AMOUNT)
+        assert (3 - g1).AMOUNT.sum() == -g1.AMOUNT.sum() + 3 * len(g1.AMOUNT)
+    def test_mul(self):
+        g1 = cn.Graph(sample0)
+        assert (g1 * 2).AMOUNT.sum() == g1.AMOUNT.sum() * 2
+        assert (3 * g1).AMOUNT.sum() == g1.AMOUNT.sum() * 3
+    def test_div(self):
+        g1 = cn.Graph(sample0)
+        assert (g1 / 2).AMOUNT.sum() == g1.AMOUNT.sum() / 2
+        assert (1/g1).AMOUNT.sum() == (1/g1.AMOUNT).sum()
+
+
+
 
 
