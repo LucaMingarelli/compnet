@@ -701,6 +701,47 @@ class Graph:
     def __ne__(self, other):
         return not self.__eq__(other)
 
+    def __add__(self, other):
+        self_el = self.edge_list.set_index(['SOURCE', 'TARGET'])
+        if isinstance(other, Graph):
+            other_el = other.edge_list.set_index(['SOURCE', 'TARGET'])
+            return Graph(self_el.add(other_el, fill_value=0).reset_index())
+        else:
+            return Graph((self_el+other).reset_index())
+
+    def __neg__(self):
+        return Graph((-self.edge_list.set_index(['SOURCE', 'TARGET'])).reset_index())
+
+    def __sub__(self, other):
+        return self.__add__(-other)
+
+    def __radd__(self, other):
+        return self + other
+
+    def __rsub__(self, other):
+        return -self + other
+
+    def __mul__(self, other):
+        if isinstance(other, Graph):
+            raise ValueError("Multiplication between two Graph objects is not defined.")
+        else:
+            return Graph((other*self.edge_list.set_index(['SOURCE', 'TARGET'])).reset_index())
+
+    def __rmul__(self, other):
+        return self * other
+
+    def __truediv__(self, other):
+        if isinstance(other, Graph):
+            raise ValueError("Division between two Graph objects is not defined.")
+        else:
+            return Graph((self.edge_list.set_index(['SOURCE', 'TARGET'])/other).reset_index())
+
+    def inverse(self):
+        return Graph((1/self.edge_list.set_index(['SOURCE', 'TARGET'])).reset_index())
+
+    def __rtruediv__(self, other):
+        return self.inverse() * other
+
     def __repr__(self):
         MAX_LEN = self._MAX_DISPLAY_LENGTH or 20
         is_long = len(self.edge_list) > MAX_LEN
