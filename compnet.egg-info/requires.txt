@@ -1,8 +1,0 @@
-numpy
-pandas
-numba
-scipy
-tqdm
-tabulate
-networkx
-duckdb
