@@ -1,7 +1,41 @@
+Metadata-Version: 2.4
+Name: compnet
+Version: 0.8.0
+Summary: A package for market compression of network data.
+Home-page: https://github.com/LucaMingarelli/compnet
+Author: Luca Mingarelli
+Author-email: lucamingarelli@me.com
+License: CC BY-NC-SA 4.0
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+License-File: LICENSE.md
+Requires-Dist: numpy
+Requires-Dist: pandas
+Requires-Dist: numba
+Requires-Dist: scipy
+Requires-Dist: tqdm
+Requires-Dist: tabulate
+Requires-Dist: networkx
+Requires-Dist: duckdb
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
 # <img src="compnet/res/icons/Network_Compression.png" width="120px"/> *compnet* — Compression for Market Network data 
 
 [![CircleCI](https://dl.circleci.com/status-badge/img/gh/LucaMingarelli/compnet/tree/main.svg?style=svg&circle-token=5c008782a97bdc48aa09b6d25d815a563d572595)](https://dl.circleci.com/status-badge/redirect/gh/LucaMingarelli/compnet/tree/main)
-[![version](https://img.shields.io/badge/version-0.8.1-success.svg)](#)
+[![version](https://img.shields.io/badge/version-0.8.0-success.svg)](#)
 [![PyPI Latest Release](https://img.shields.io/pypi/v/compnet.svg)](https://pypi.org/project/compnet/)
 [![Downloads](https://static.pepy.tech/badge/compnet)](https://pepy.tech/project/compnet)
 [![License](https://img.shields.io/pypi/l/compnet.svg)](https://github.com/LucaMingarelli/compnet/blob/master/LICENSE.md)

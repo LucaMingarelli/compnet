@@ -228,16 +228,6 @@ class TestArithmetics:
         assert (g1 / 2).AMOUNT.sum() == g1.AMOUNT.sum() / 2
         assert (1/g1).AMOUNT.sum() == (1/g1.AMOUNT).sum()
 
-    def test_sum_with_grouper(self):
-        g = cn.Graph(df=sample_twogrouper, source='lender', target='borrower', amount='amount',
-                     grouper=['date', 'collateral'])
-
-        assert len((g+g).AMOUNT) == len(g.AMOUNT)
-        assert (g + g).AMOUNT.sum() == g.AMOUNT.sum() * 2
-
-
-
-
 
 
 

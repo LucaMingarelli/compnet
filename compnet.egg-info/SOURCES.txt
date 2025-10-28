@@ -1,0 +1,16 @@
+LICENSE.md
+README.md
+setup.py
+compnet/__about__.py
+compnet/__init__.py
+compnet/algo.py
+compnet.egg-info/PKG-INFO
+compnet.egg-info/SOURCES.txt
+compnet.egg-info/dependency_links.txt
+compnet.egg-info/requires.txt
+compnet.egg-info/top_level.txt
+compnet/res/__init__.py
+compnet/res/by-nc-sa.eu.svg
+compnet/tests/__init__.py
+compnet/tests/test_all.py
+compnet/tests/tests.py
