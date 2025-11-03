@@ -202,6 +202,177 @@ def compression_factor(df1, df2, p=2, grouper=None):
     return CF
 
 
+def split_nettable(df, source='SOURCE', target='TARGET', amount='AMOUNT', grouper=None):
+    """
+    Splits a given nettable DataFrame into nettable transactions and non-nettable residuals or unmatched transactions.
+
+    This function identifies and processes mutual matching transactions by their source, target, amount, and other
+    grouping columns, carving out portions of nettable transactions and residuals or unmatched transactions into
+    distinct sets. It determines splitting logic in a nested and iterative fashion to ensure all matching partners
+    are properly identified and processed.
+
+    Args:
+        df (pd.DataFrame): Input DataFrame containing transactions to be split.
+        source (str): Column name representing the source entity in the transactions.
+        target (str): Column name representing the target entity in the transactions.
+        amount (str): Column name representing the transaction amount.
+        grouper (tuple of str | None): Tuple of column names used to group transactions for matching.
+
+    Returns:
+        tuple: A tuple containing two DataFrames:
+            - The first DataFrame contains nettable transactions.
+            - The second DataFrame contains residual and unmatched transactions.
+    """
+    def _get_nettable(f_input, existing_nettable=None):
+        GROUPER_STATEMENT = 'AND ' + ' AND '.join([f'f1.{g} = f2.{g}' for g in grouper]) if grouper else ''
+        f1GROUPER_STATEMENT = ', ' + ', '.join([f'f1.{g}' for g in grouper]) if grouper else ''
+        SELECTGROUPER_STATEMENT = ', ' + ', '.join(grouper) if grouper else ''
+        fGROUPER_STATEMENT = ', ' + ', '.join([f'f.{g}' for g in grouper]) if grouper else ''
+        netted = duckdb.sql(f"""
+-- Step 1: For each transaction, rank all its potential partners
+WITH RANKED_MATCHES AS (
+    SELECT 
+        f1.index AS p_index, -- "Primary" transaction
+        f2.index AS m_index, -- "Matched" transaction
+        f1.{amount} AS p_amount,
+        f2.{amount} AS m_amount,
+        -- Rank matches by smallest amount difference, using index as a tie-breaker
+        ROW_NUMBER() OVER (PARTITION BY f1.index ORDER BY ABS(f1.{amount} - f2.{amount}), f2.index) AS match_rank
+    FROM f_input AS f1
+    INNER JOIN f_input AS f2
+        ON f1.{source} = f2.{target}
+        AND f1.{target} = f2.{source}
+        AND f1.index <> f2.index -- Ensure it doesn't match with itself
+        {GROUPER_STATEMENT}
+),
+-- Step 2: Select only the single best match for each transaction
+BEST_CHOICES AS (
+    SELECT * FROM RANKED_MATCHES 
+    WHERE match_rank = 1
+),
+-- Step 3: Find pairs where the 'best choice' is mutual and keep original details
+MUTUAL_BEST_MATCHES AS (
+    SELECT 
+        p.p_index AS index1,
+        p.m_index AS index2,
+        p.p_amount AS amount1,
+        p.m_amount AS amount2,
+        f1.{source},
+        f1.{target}
+        {f1GROUPER_STATEMENT}
+    FROM BEST_CHOICES p
+    -- Join best choices with themselves to find reciprocal pairs
+    INNER JOIN BEST_CHOICES m ON p.p_index = m.m_index AND p.m_index = m.p_index
+    -- Join back to original table to retrieve details for the splitting logic
+    INNER JOIN f_input f1 ON p.p_index = f1.index
+    -- Ensure each pair is selected only once in canonical order (smaller index first)
+    WHERE p.p_index < p.m_index
+),
+-- (Your original splitting logic is correct and remains unchanged)
+SPLIT_TRANSACTIONS AS (
+    -- Transaction 1 nettable portion
+    SELECT 
+        index1 as original_index,
+        'nettable' as split_type,
+        index2 as netted_with_index,
+        LEAST(amount1, amount2) AS {amount},
+        {source},
+        {target}
+        {SELECTGROUPER_STATEMENT}
+    FROM MUTUAL_BEST_MATCHES
+
+    UNION ALL
+
+    -- Transaction 2 nettable portion
+    SELECT 
+        index2 AS original_index,
+        'nettable' AS split_type,
+        index1 AS netted_with_index,
+        LEAST(amount1, amount2) AS {amount},
+        {target} AS {source},  -- Swapped
+        {source} AS {target}   -- Swapped
+        {SELECTGROUPER_STATEMENT}
+    FROM MUTUAL_BEST_MATCHES
+
+    UNION ALL
+
+    -- Transaction 1 residual (if amount1 > amount2)
+    SELECT 
+        index1 AS original_index,
+        'residual' AS split_type,
+        NULL AS netted_with_index,
+        amount1 - amount2 AS {amount},
+        {source},
+        {target}
+        {SELECTGROUPER_STATEMENT}
+    FROM MUTUAL_BEST_MATCHES
+    WHERE amount1 > amount2
+
+    UNION ALL
+
+    -- Transaction 2 residual (if amount2 > amount1)
+    SELECT 
+        index2 AS original_index,
+        'residual' AS split_type,
+        NULL AS netted_with_index,
+        amount2 - amount1 AS {amount},
+        {target} AS {source},  -- Swapped
+        {source} AS {target}   -- Swapped
+        {SELECTGROUPER_STATEMENT}
+    FROM MUTUAL_BEST_MATCHES
+    WHERE amount2 > amount1
+
+    UNION ALL
+
+    -- Unmatched transactions (remain whole)
+    SELECT 
+        f.index AS original_index,
+        'unmatched' AS split_type,
+        NULL AS netted_with_index,
+        f.{amount},
+        f.{source},
+        f.{target}
+        {fGROUPER_STATEMENT}
+    FROM f_input f
+    WHERE f.index NOT IN (
+        SELECT index1 FROM MUTUAL_BEST_MATCHES
+        UNION
+        SELECT index2 FROM MUTUAL_BEST_MATCHES
+    )
+)
+SELECT * FROM SPLIT_TRANSACTIONS
+ORDER BY original_index, split_type;
+    """).to_df()
+
+        assert np.isclose(f_input.AMOUNT.sum(), netted.AMOUNT.sum())
+        nettable = netted[netted.split_type == 'nettable']
+        if existing_nettable is not None:
+            if nettable.empty:
+                nettable = existing_nettable
+            else:
+                nettable = pd.concat([existing_nettable, nettable], ignore_index=True)
+        non_nettable = netted[netted.split_type != 'nettable'].reset_index(drop=True)
+        non_nettable.index = non_nettable.index.astype(str) + '_' + non_nettable.original_index.astype(str)
+        return nettable, non_nettable
+
+    nettable, non_nettable = _get_nettable(f_input=df.reset_index())
+
+    len_nettable = len_non_nettable = 0
+    while (len_nettable != len(nettable)) or (len_non_nettable != len(non_nettable)):
+        nettable, non_nettable = _get_nettable(f_input=non_nettable.reset_index(), existing_nettable=nettable)
+        len_nettable = len(nettable)
+        len_non_nettable = len(non_nettable)
+        # print(len(nettable), len(non_nettable))
+    assert np.isclose(df.AMOUNT.sum(), nettable.AMOUNT.sum() + non_nettable.AMOUNT.sum())
+
+    if not nettable.empty:
+        nettable2, non_nettable2 = split_nettable(df=non_nettable, source=source, target=target, amount=amount, grouper=grouper)
+        if not nettable2.empty:
+            nettable = pd.concat([nettable, nettable2])
+        non_nettable = non_nettable2
+
+    return nettable.reset_index(drop=True), non_nettable.reset_index(drop=True)
+
 
 # class self: ...
 # self = self()
@@ -214,7 +385,7 @@ class Graph:
 
     def __init__(self, df: pd.DataFrame,
                  source: str='SOURCE', target: str='TARGET', amount: str='AMOUNT',
-                 grouper: Union[str, list]=None,
+                 grouper: Union[str, tuple, list]=None,
                  ):
         """
         Initialises compnet.Group object.
@@ -691,6 +862,42 @@ class Graph:
         else:
             return cleared_g
 
+    def split_compressable(self, type='bilateral', return_graph=True):
+        """
+        Splits the network's edges into compressable and non-compressable groups based
+        on the specified compression type and optionally returns them as separate graphs.
+
+        Args:
+            type (str): The type of compression split to be used. Currently, only
+                'bilateral' is supported. Defaults to 'bilateral'.
+            return_graph (bool): If True, returns the split data as `Graph` objects.
+                If False, returns the raw DataFrames. Defaults to True.
+
+        Returns:
+            tuple: A tuple containing two elements:
+                - If `return_graph` is True: Two `Graph` objects, the first for
+                  compressable edges and the second for non-compressable edges.
+                - If `return_graph` is False: Two pandas DataFrames, the first for
+                  compressable edges and the second for non-compressable edges.
+
+        Raises:
+            NotImplementedError: If the specified `type` is not recognized or
+                implemented in the method.
+        """
+        if type.lower() not in ('bilateral',):
+            raise NotImplemented(f'Splitting by compression type `{type}`  not implemented: only bilateral is available.')
+        compressable, non_compressable = split_nettable(df=self.edge_list,
+                                                        source='SOURCE',
+                                                        target='TARGET',
+                                                        amount='AMOUNT',
+                                                        grouper=self.__GROUPER)
+        compressable = compressable.rename(columns=self._labels_imap)
+        non_compressable = non_compressable.rename(columns=self._labels_imap)
+        if return_graph:
+            return (Graph(df=compressable, **self._original_kwargs()),
+                    Graph(df=non_compressable, **self._original_kwargs()))
+        else:
+            return compressable, non_compressable
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):

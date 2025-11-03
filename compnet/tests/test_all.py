@@ -235,9 +235,20 @@ class TestArithmetics:
         assert len((g+g).AMOUNT) == len(g.AMOUNT)
         assert (g + g).AMOUNT.sum() == g.AMOUNT.sum() * 2
 
+class TestSplitting:
+    def test_split_compressable_bilateral(self):
+        g = cn.Graph(df=sample_bilateral)
+        c, nc = g.split_compressable(type='bilateral', return_graph=True)
+        assert c.GMS + nc.GMS == g.GMS
+        assert g.CMS == nc.CMS
+        assert c.CMS == 0
 
-
-
+        g2 = cn.Graph(df=sample_twogrouper, source='lender', target='borrower', amount='amount',
+                        grouper=('date', 'collateral'))
+        c2, nc2 = g2.split_compressable(type='bilateral', return_graph=True)
+        assert (c2.GMS + nc2.GMS == g2.GMS).all()
+        assert (g2.CMS == nc2.CMS).all()
+        assert (c2.CMS == 0).all()
 
 
 
