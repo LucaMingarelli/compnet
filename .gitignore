@@ -2,6 +2,9 @@
 */__pycache__/*
 *cpython*
 _paper/
+dist/
+build/
+*.egg-info
 PROOFS.md
 !.gitignore
 !.gitconfig
