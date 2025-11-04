@@ -202,7 +202,7 @@ def compression_factor(df1, df2, p=2, grouper=None):
     return CF
 
 
-def split_nettable(df, source='SOURCE', target='TARGET', amount='AMOUNT', grouper=None):
+def split_nettable(df, source='SOURCE', target='TARGET', amount='AMOUNT', grouper=None, tol_prc=0.005):
     """
     Splits a given nettable DataFrame into nettable transactions and non-nettable residuals or unmatched transactions.
 
@@ -217,6 +217,7 @@ def split_nettable(df, source='SOURCE', target='TARGET', amount='AMOUNT', groupe
         target (str): Column name representing the target entity in the transactions.
         amount (str): Column name representing the transaction amount.
         grouper (tuple of str | None): Tuple of column names used to group transactions for matching.
+        tol_prc (float | None): Tolerance for precision of the nettable size. If None, computes exactly.
 
     Returns:
         tuple: A tuple containing two DataFrames:
@@ -365,8 +366,10 @@ ORDER BY original_index, split_type;
         # print(len(nettable), len(non_nettable))
     assert np.isclose(df.AMOUNT.sum(), nettable.AMOUNT.sum() + non_nettable.AMOUNT.sum())
 
-    if not nettable.empty:
-        nettable2, non_nettable2 = split_nettable(df=non_nettable, source=source, target=target, amount=amount, grouper=grouper)
+    missing_frac = nettable.AMOUNT.sum() / df.AMOUNT.sum()
+    # print(missing_frac)
+    if not nettable.empty and (missing_frac > tol_prc if tol_prc else True):
+        nettable2, non_nettable2 = split_nettable(df=non_nettable, source=source, target=target, amount=amount, grouper=grouper, tol_prc=tol_prc)
         if not nettable2.empty:
             nettable = pd.concat([nettable, nettable2])
         non_nettable = non_nettable2
