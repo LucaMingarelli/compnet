@@ -20,7 +20,7 @@ def formatwarning(msg, *args, **kwargs):
     return f'{msg}\n'
 
 warnings.formatwarning = formatwarning
-
+TOL_PRC = 0.001
 __SEP = '__<>__<>__'
 
 def _flip_neg_amnts(df):
@@ -202,7 +202,7 @@ def compression_factor(df1, df2, p=2, grouper=None):
     return CF
 
 
-def split_nettable(df, source='SOURCE', target='TARGET', amount='AMOUNT', grouper=None, tol_prc=0.005):
+def split_nettable(df, source='SOURCE', target='TARGET', amount='AMOUNT', grouper=None, tol_prc=TOL_PRC, verbose=False):
     """
     Splits a given nettable DataFrame into nettable transactions and non-nettable residuals or unmatched transactions.
 
@@ -224,6 +224,19 @@ def split_nettable(df, source='SOURCE', target='TARGET', amount='AMOUNT', groupe
             - The first DataFrame contains nettable transactions.
             - The second DataFrame contains residual and unmatched transactions.
     """
+    duplicated_index = df.index.duplicated().any()
+    if duplicated_index:
+        warnings.warn('Duplicated index found. This may lead to errors in the computation of the nettable amounts. ' +
+                      'The index will be reset.')
+        df.reset_index(drop=True, inplace=True)
+
+    GRP = ['SOURCE', 'TARGET'] + grouper if grouper else []
+    def _consistency_check(nettable, non_nettable):
+        assert np.isclose(df.AMOUNT.sum(), nettable.AMOUNT.sum() + non_nettable.AMOUNT.sum()), 'Aggregate amounts not preserved'
+        assert (df.groupby(GRP).AMOUNT.sum()
+                - (nettable.groupby(GRP).AMOUNT.sum() + non_nettable.groupby(GRP).AMOUNT.sum()).fillna(0)
+                ).min().round(1) >= 0,  'Increasing group-level positions!'
+
     def _get_nettable(f_input, existing_nettable=None):
         GROUPER_STATEMENT = 'AND ' + ' AND '.join([f'f1.{g} = f2.{g}' for g in grouper]) if grouper else ''
         f1GROUPER_STATEMENT = ', ' + ', '.join([f'f1.{g}' for g in grouper]) if grouper else ''
@@ -364,12 +377,15 @@ ORDER BY original_index, split_type;
         len_nettable = len(nettable)
         len_non_nettable = len(non_nettable)
         # print(len(nettable), len(non_nettable))
-    assert np.isclose(df.AMOUNT.sum(), nettable.AMOUNT.sum() + non_nettable.AMOUNT.sum())
+
+    _consistency_check(nettable, non_nettable)
+
 
     missing_frac = nettable.AMOUNT.sum() / df.AMOUNT.sum()
-    # print(missing_frac)
+    if verbose:
+        print(round(100*missing_frac, 3))
     if not nettable.empty and (missing_frac > tol_prc if tol_prc else True):
-        nettable2, non_nettable2 = split_nettable(df=non_nettable, source=source, target=target, amount=amount, grouper=grouper, tol_prc=tol_prc)
+        nettable2, non_nettable2 = split_nettable(df=non_nettable, source=source, target=target, amount=amount, grouper=grouper, tol_prc=tol_prc, verbose=verbose)
         if not nettable2.empty:
             nettable = pd.concat([nettable, nettable2])
         non_nettable = non_nettable2
@@ -865,7 +881,7 @@ class Graph:
         else:
             return cleared_g
 
-    def split_compressable(self, type='bilateral', return_graph=True):
+    def split_compressable(self, type='bilateral', return_graph=True, tol_prc=TOL_PRC, verbose=False):
         """
         Splits the network's edges into compressable and non-compressable groups based
         on the specified compression type and optionally returns them as separate graphs.
@@ -893,7 +909,9 @@ class Graph:
                                                         source='SOURCE',
                                                         target='TARGET',
                                                         amount='AMOUNT',
-                                                        grouper=self.__GROUPER)
+                                                        grouper=self.__GROUPER,
+                                                        tol_prc=tol_prc,
+                                                        verbose=verbose)
         compressable = compressable.rename(columns=self._labels_imap)
         non_compressable = non_compressable.rename(columns=self._labels_imap)
         if return_graph:

@@ -1,7 +1,7 @@
 # <img src="compnet/res/icons/Network_Compression.png" width="120px"/> *compnet* — Compression for Market Network data 
 
 [![CircleCI](https://dl.circleci.com/status-badge/img/gh/LucaMingarelli/compnet/tree/main.svg?style=svg&circle-token=5c008782a97bdc48aa09b6d25d815a563d572595)](https://dl.circleci.com/status-badge/redirect/gh/LucaMingarelli/compnet/tree/main)
-[![version](https://img.shields.io/badge/version-0.8.4-success.svg)](#)
+[![version](https://img.shields.io/badge/version-0.8.5-success.svg)](#)
 [![PyPI Latest Release](https://img.shields.io/pypi/v/compnet.svg)](https://pypi.org/project/compnet/)
 [![Downloads](https://static.pepy.tech/badge/compnet)](https://pepy.tech/project/compnet)
 [![License](https://img.shields.io/pypi/l/compnet.svg)](https://github.com/LucaMingarelli/compnet/blob/master/LICENSE.md)
