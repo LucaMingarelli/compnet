@@ -230,7 +230,7 @@ def split_nettable(df, source='SOURCE', target='TARGET', amount='AMOUNT', groupe
                       'The index will be reset.')
         df.reset_index(drop=True, inplace=True)
 
-    GRP = ['SOURCE', 'TARGET'] + (grouper if grouper else [])
+    GRP = ['SOURCE', 'TARGET'] + (([grouper] if isinstance(grouper, str) else grouper) if grouper else [])
     def _consistency_check(nettable, non_nettable):
         assert np.isclose(df.AMOUNT.sum(), nettable.AMOUNT.sum() + non_nettable.AMOUNT.sum()), 'Aggregate amounts not preserved'
         assert (df.groupby(GRP).AMOUNT.sum()
