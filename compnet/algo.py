@@ -434,6 +434,8 @@ class Graph:
         self._labels_imap = {v:k for k,v in self._labels_map.items()}
         self.edge_list = df[self._labels].rename(columns=self._labels_map)
         all_nodes = _get_all_nodes(self.edge_list)
+        self.nunique_nodes = len(all_nodes)
+        self.nunique_edges = self.edge_list[['SOURCE', 'TARGET']].drop_duplicates().shape[0]
         if self.__GROUPER and any(set(all_nodes) - set(_get_all_nodes(g)) for _, g in self.edge_list.groupby(self.__GROUPER)) and not SUPPRESS_WARNINGS:
             warnings.warn(f"\n\nSome nodes (SOURCE `{source}` or TARGET `{target}`) are missing from some groups (GROUPER `{grouper}`).\n"
                           "These will be filled with zeros.\n")
