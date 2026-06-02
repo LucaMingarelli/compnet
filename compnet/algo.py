@@ -432,31 +432,31 @@ class Graph:
                                if self._multi_grouper else
                                {grouper: self.__GROUPER or 'GROUPER'} if grouper else {})}
         self._labels_imap = {v:k for k,v in self._labels_map.items()}
-        self.edge_list = df[self._labels].rename(columns=self._labels_map)
-        all_nodes = _get_all_nodes(self.edge_list)
+        self._edge_list = df[self._labels].rename(columns=self._labels_map)
+        all_nodes = _get_all_nodes(self._edge_list)
         self.nunique_nodes = len(all_nodes)
-        self.nunique_edges = self.edge_list[['SOURCE', 'TARGET']].drop_duplicates().shape[0]
-        if self.__GROUPER and any(set(all_nodes) - set(_get_all_nodes(g)) for _, g in self.edge_list.groupby(self.__GROUPER)) and not SUPPRESS_WARNINGS:
+        self.nunique_edges = self._edge_list[['SOURCE', 'TARGET']].drop_duplicates().shape[0]
+        if self.__GROUPER and any(set(all_nodes) - set(_get_all_nodes(g)) for _, g in self._edge_list.groupby(self.__GROUPER)) and not SUPPRESS_WARNINGS:
             warnings.warn(f"\n\nSome nodes (SOURCE `{source}` or TARGET `{target}`) are missing from some groups (GROUPER `{grouper}`).\n"
                           "These will be filled with zeros.\n")
 
-        self.gross_flow = _get_nodes_gross_flow(df=self.edge_list, grouper=self.__GROUPER, adjust_labels=self._labels_imap)
+        self.gross_flow = _get_nodes_gross_flow(df=self._edge_list, grouper=self.__GROUPER, adjust_labels=self._labels_imap)
         self.net_flow = (self.gross_flow['IN'] - self.gross_flow['OUT'])
-        # self.net_flow == _get_nodes_net_flow(df=self.edge_list, grouper=self.__GROUPER, adjust_labels=self._labels_imap)
+        # self.net_flow == _get_nodes_net_flow(df=self._edge_list, grouper=self.__GROUPER, adjust_labels=self._labels_imap)
 
         self.describe(print_props=False, ret=False)  # Builds GMS, CMS, EMS, and properties
 
     @property
     def SOURCE(self):
-        return self.edge_list['SOURCE']
+        return self._edge_list['SOURCE']
 
     @property
     def TARGET(self):
-        return self.edge_list['TARGET']
+        return self._edge_list['TARGET']
 
     @property
     def AMOUNT(self):
-        return self.edge_list['AMOUNT']
+        return self._edge_list['AMOUNT']
 
     @property
     def ENTITIES(self):
@@ -471,6 +471,10 @@ class Graph:
         entities['gross_flow'] = self.gross_flow['GROSS_TOTAL']
         entities['net_flow'] = self.net_flow
         return entities
+
+    @property
+    def edge_list(self):
+        return self.edge_list.rename(columns=self._labels_imap)[self._labels]
 
     @property
     def DEALERS(self):
@@ -502,7 +506,7 @@ class Graph:
         degree_grper_str = ','.join([f'COALESCE(i.{g},o.{g}) AS {g}' for g in grouper]) + ',' if isinstance(grouper, list) else ''
         on_grper_str = 'i.ENTITY = o.ENTITY AND ' + ' AND '.join([f'i.{grpr} = o.{grpr}' for grpr in grouper]) if grouper is not None else 'i.ENTITY = o.ENTITY'
 
-        edgelist = self.edge_list
+        edgelist = self._edge_list
         return duckdb.sql(f"""
                   WITH InDegree AS (SELECT {grper_str} TARGET AS ENTITY, SUM(AMOUNT) AS IN_DEGREE
                                     FROM edgelist
@@ -547,7 +551,7 @@ class Graph:
         Returns:
             If `ret==True`, pandas.Series if grouper is None, else pandas.DataFrame.
         """
-        df = self.edge_list
+        df = self._edge_list
         if (self.GMS is None
                 or self.CMS is None
                 or self.EMS is None
@@ -810,7 +814,7 @@ class Graph:
             Graph object or edge list (pandas.DataFrame) corresponding to compressed network.
 
         """
-        df = self.edge_list
+        df = self._edge_list
         if type.lower() == 'nc-ed':
             compressor = self._non_conservative_compression_ED  # This has been optimised via duckdb. Will not be looped.
         elif type.lower() == 'nc-max':
@@ -871,8 +875,8 @@ class Graph:
         Returns:
             New Graph object, with all positions centrally cleared through `ccp_name`.
         """
-        cleared_edge_list = pd.concat([self.edge_list.assign(SOURCE=ccp_name),
-                                       self.edge_list.assign(TARGET=ccp_name)])
+        cleared_edge_list = pd.concat([self._edge_list.assign(SOURCE=ccp_name),
+                                       self._edge_list.assign(TARGET=ccp_name)])
         if ccp_name in self.net_flow.index:
             cleared_edge_list = cleared_edge_list[(cleared_edge_list.SOURCE!=ccp_name)|(cleared_edge_list.TARGET!=ccp_name)]
         cleared_g = Graph(cleared_edge_list.rename(columns=self._labels_imap),
@@ -909,7 +913,7 @@ class Graph:
         """
         if type.lower() not in ('bilateral',):
             raise NotImplemented(f'Splitting by compression type `{type}`  not implemented: only bilateral is available.')
-        compressable, non_compressable = split_nettable(df=self.edge_list,
+        compressable, non_compressable = split_nettable(df=self._edge_list,
                                                         source='SOURCE',
                                                         target='TARGET',
                                                         amount='AMOUNT',
@@ -926,7 +930,7 @@ class Graph:
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
-            return (self.edge_list == other.edge_list).all().all()
+            return (self._edge_list == other.edge_list).all().all()
         else:
             return False
 
@@ -934,8 +938,8 @@ class Graph:
         return not self.__eq__(other)
 
     def _edgelist_amount(self):
-        idx_cols = list(self.edge_list.rename(columns=self._labels_imap).columns.drop(self._labels_imap['AMOUNT']))
-        return self.edge_list.rename(columns=self._labels_imap).set_index(idx_cols)
+        idx_cols = list(self._edge_list.rename(columns=self._labels_imap).columns.drop(self._labels_imap['AMOUNT']))
+        return self._edge_list.rename(columns=self._labels_imap).set_index(idx_cols)
 
     def _original_kwargs(self):
         return dict(source=self._labels_imap['SOURCE'],
@@ -992,8 +996,8 @@ class Graph:
 
     def __repr__(self):
         MAX_LEN = self._MAX_DISPLAY_LENGTH or 20
-        is_long = len(self.edge_list) > MAX_LEN
-        f = self.edge_list.head(MAX_LEN).rename(columns={v:k for k,v in self._labels_map.items()
+        is_long = len(self._edge_list) > MAX_LEN
+        f = self._edge_list.head(MAX_LEN).rename(columns={v:k for k,v in self._labels_map.items()
                                                          if k is not None})[self._labels].astype(str)
         if is_long:
             f.loc[MAX_LEN, :] = ['⋮'] * f.shape[1]
