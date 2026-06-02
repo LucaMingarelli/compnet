@@ -474,7 +474,7 @@ class Graph:
 
     @property
     def edge_list(self):
-        return self.edge_list.rename(columns=self._labels_imap)[self._labels]
+        return self._edge_list.rename(columns=self._labels_imap)[self._labels]
 
     @property
     def DEALERS(self):
