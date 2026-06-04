@@ -225,9 +225,11 @@ def split_nettable(df, source='SOURCE', target='TARGET', amount='AMOUNT', groupe
             - The second DataFrame contains residual and unmatched transactions.
     """
     duplicated_index = df.index.duplicated().any()
+    from compnet import SUPPRESS_WARNINGS
     if duplicated_index:
-        warnings.warn('Duplicated index found. This may lead to errors in the computation of the nettable amounts. ' +
-                      'The index will be reset.')
+        if not SUPPRESS_WARNINGS:
+            warnings.warn('Duplicated index found. This may lead to errors in the computation of the nettable amounts. ' +
+                          'The index will be reset.')
         df.reset_index(drop=True, inplace=True)
 
     if grouper:
